@@ -13,9 +13,6 @@ export default function middleware(request) {
   const url      = new URL(request.url);
   const pathname = url.pathname;
 
-  // Public: board display
-  if (pathname === '/' || pathname === '/index.html') return;
-
   // Public: airport website data feed
   if (pathname === '/api/flights' && request.method === 'GET') return;
 
