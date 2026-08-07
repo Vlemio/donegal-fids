@@ -1,0 +1,125 @@
+{
+  "_comment": "Horario recurrente. days: 0=Dom 1=Lun 2=Mar 3=Mié 4=Jue 5=Vie 6=Sáb. Edítalo desde el panel /admin.",
+  "recurring": [
+    {
+      "_id": "ei3401-dep",
+      "type": "departure",
+      "time": "07:55",
+      "airline": "Aer Lingus",
+      "airlineCode": "EI",
+      "city": "Dublin",
+      "flightNo": "EI3401",
+      "callsign": "EAI41D",
+      "codeshare": ["BA8911", "QR8254"],
+      "days": [0, 1, 2, 3, 4, 5, 6]
+    },
+    {
+      "_id": "ei3402-arr",
+      "type": "arrival",
+      "time": "14:00",
+      "airline": "Aer Lingus",
+      "airlineCode": "EI",
+      "city": "Dublin",
+      "flightNo": "EI3402",
+      "callsign": "EAI42D",
+      "codeshare": ["QR9666", "BA8912"],
+      "days": [0, 1, 2, 3, 4, 5, 6]
+    },
+    {
+      "_id": "ei3403-dep",
+      "type": "departure",
+      "time": "14:30",
+      "airline": "Aer Lingus",
+      "airlineCode": "EI",
+      "city": "Dublin",
+      "flightNo": "EI3403",
+      "callsign": "EAI43D",
+      "codeshare": ["BA8913"],
+      "days": [0, 1, 2, 3, 4, 5, 6]
+    },
+    {
+      "_id": "ei3408-arr",
+      "type": "arrival",
+      "time": "20:00",
+      "airline": "Aer Lingus",
+      "airlineCode": "EI",
+      "city": "Dublin",
+      "flightNo": "EI3408",
+      "callsign": "EAI48D",
+      "codeshare": ["QR8255", "BA8914"],
+      "days": [0, 1, 2, 3, 4, 5, 6]
+    },
+    {
+      "_id": "lm203-arr-wed",
+      "type": "arrival",
+      "time": "14:15",
+      "airline": "Loganair",
+      "airlineCode": "LM",
+      "city": "Glasgow",
+      "flightNo": "LM203",
+      "callsign": "",
+      "codeshare": [],
+      "days": [3]
+    },
+    {
+      "_id": "lm203-arr-sat",
+      "type": "arrival",
+      "time": "14:25",
+      "airline": "Loganair",
+      "airlineCode": "LM",
+      "city": "Glasgow",
+      "flightNo": "LM203",
+      "callsign": "",
+      "codeshare": [],
+      "days": [6]
+    },
+    {
+      "_id": "lm203-arr-sun",
+      "type": "arrival",
+      "time": "17:45",
+      "airline": "Loganair",
+      "airlineCode": "LM",
+      "city": "Glasgow",
+      "flightNo": "LM203",
+      "callsign": "",
+      "codeshare": [],
+      "days": [0]
+    },
+    {
+      "_id": "lm204-dep-wed",
+      "type": "departure",
+      "time": "15:45",
+      "airline": "Loganair",
+      "airlineCode": "LM",
+      "city": "Glasgow",
+      "flightNo": "LM204",
+      "callsign": "",
+      "codeshare": [],
+      "days": [3]
+    },
+    {
+      "_id": "lm204-dep-sat",
+      "type": "departure",
+      "time": "15:55",
+      "airline": "Loganair",
+      "airlineCode": "LM",
+      "city": "Glasgow",
+      "flightNo": "LM204",
+      "callsign": "",
+      "codeshare": [],
+      "days": [6]
+    },
+    {
+      "_id": "lm204-dep-sun",
+      "type": "departure",
+      "time": "19:15",
+      "airline": "Loganair",
+      "airlineCode": "LM",
+      "city": "Glasgow",
+      "flightNo": "LM204",
+      "callsign": "",
+      "codeshare": [],
+      "days": [0]
+    }
+  ]
+}

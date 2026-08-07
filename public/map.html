@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Donegal FIDS · Live Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="map.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="side">
+      <header class="side__head">
+        <strong>Live Tracking</strong>
+        <span class="side__sub">Donegal Airport · ADS-B</span>
+      </header>
+
+      <div class="side__status">
+        <span class="dot" id="liveDot"></span>
+        <span id="statusMsg">Loading…</span>
+        <button class="btn" id="refreshBtn" type="button">Refresh</button>
+      </div>
+
+      <!-- Scheduled flights being tracked -->
+      <div class="section-label">Scheduled flights</div>
+      <div class="tracked" id="tracked"></div>
+
+      <!-- Extra aircraft heading to EIDL -->
+      <div id="possibleSection" style="display:none">
+        <div class="section-label section-label--amber">↓ Approaching EIDL</div>
+        <div class="possible" id="possible"></div>
+      </div>
+
+      <footer class="side__foot">
+        <a href="/admin">← Control panel</a>
+        <a href="/" target="_blank">Display ↗</a>
+      </footer>
+    </aside>
+
+    <div id="map"></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="map.js"></script>
+</body>
+</html>

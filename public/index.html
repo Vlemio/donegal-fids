@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Donegal Airport · Flight Information</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="board.css" />
+</head>
+<body>
+  <div class="board">
+    <!-- Header -->
+    <header class="board__header">
+      <div class="brand">
+        <div class="brand__logo-wrap">
+          <img class="brand__logo" src="logo.png" alt="Donegal Airport logo" />
+        </div>
+        <div class="brand__name">
+          <span class="brand__irish" id="airportIrish">Aerfort Dhún na nGall</span>
+          <span class="brand__en" id="airportName">Donegal Airport</span>
+        </div>
+      </div>
+
+      <h1 class="board__title">Flight Information</h1>
+
+      <div class="clock">
+        <span class="clock__time" id="clock">--:--</span>
+        <span class="clock__date" id="date">—</span>
+      </div>
+    </header>
+
+    <!-- Departures -->
+    <section class="panel" id="departuresPanel">
+      <div class="panel__head panel__head--dep">
+        <!-- Departure: standard top-view plane rotated to ascend upper-right -->
+        <img class="panel__icon" src="dep-icon.png" alt="" />
+        <span class="panel__label">Departures</span>
+        <span class="panel__label panel__label--irish">Imeachtaí</span>
+      </div>
+      <div class="table">
+        <div class="row row--header">
+          <div class="cell cell--time">Time</div>
+          <div class="cell cell--airline">Airline</div>
+          <div class="cell cell--city">To</div>
+          <div class="cell cell--flight">Flight</div>
+          <div class="cell cell--code">Codeshare</div>
+          <div class="cell cell--status">Status</div>
+        </div>
+        <div class="table__body" id="departures"></div>
+      </div>
+    </section>
+
+    <!-- Arrivals -->
+    <section class="panel" id="arrivalsPanel">
+      <div class="panel__head panel__head--arr">
+        <!-- Arrival: same plane rotated to descend lower-left (landing approach) -->
+        <img class="panel__icon" src="arr-icon.png" alt="" />
+        <span class="panel__label">Arrivals</span>
+        <span class="panel__label panel__label--irish">Teachtaí</span>
+      </div>
+      <div class="table">
+        <div class="row row--header">
+          <div class="cell cell--time">Time</div>
+          <div class="cell cell--airline">Airline</div>
+          <div class="cell cell--city">From</div>
+          <div class="cell cell--flight">Flight</div>
+          <div class="cell cell--code">Codeshare</div>
+          <div class="cell cell--status">Status</div>
+        </div>
+        <div class="table__body" id="arrivals"></div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="board__footer">
+      <div class="ticker" id="ticker"></div>
+    </footer>
+  </div>
+
+  <script src="board.js"></script>
+</body>
+</html>

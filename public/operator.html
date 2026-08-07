@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Donegal Airport · Staff Panel</title>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="operator.css" />
+</head>
+<body>
+
+  <header class="hdr">
+    <div class="hdr__brand">
+      <div class="hdr__airport">DONEGAL AIRPORT</div>
+      <div class="hdr__sub">Flight Operations</div>
+    </div>
+    <div class="hdr__mid">
+      <div class="mode-pill" id="modePill">● ALL AUTO</div>
+    </div>
+    <div class="hdr__right">
+      <div class="clock" id="clock">--:--</div>
+      <button class="hdr-btn hdr-btn--release" id="allAutoBtn">↺ Release all to auto</button>
+      <a href="/admin" class="hdr-btn">⚙ Settings</a>
+      <a href="/" target="_blank" class="hdr-btn">Board ↗</a>
+    </div>
+  </header>
+
+  <div class="cols">
+    <section class="col">
+      <h2 class="col__title">↑ Departures</h2>
+      <div class="flight-list" id="depList"></div>
+    </section>
+    <section class="col">
+      <h2 class="col__title">↓ Arrivals</h2>
+      <div class="flight-list" id="arrList"></div>
+    </section>
+  </div>
+
+  <section class="qa-section">
+    <div class="qa-header">
+      <h2 class="qa-title">Timetable — quick add</h2>
+      <p class="qa-desc">Flights scheduled today not yet on the board. Tap to add instantly.</p>
+    </div>
+    <div class="qa-list" id="qaList"></div>
+
+    <!-- Custom / one-off flight -->
+    <div class="custom-add">
+      <button class="custom-add__toggle" id="customToggle">＋ Add custom flight</button>
+      <div class="custom-add__form" id="customForm" hidden>
+        <div class="cform">
+          <label class="cf-field">
+            <span class="cf-label">Type</span>
+            <select class="cf-input" id="cf_type">
+              <option value="departure">↑ Departure</option>
+              <option value="arrival">↓ Arrival</option>
+            </select>
+          </label>
+          <label class="cf-field">
+            <span class="cf-label">Flight No</span>
+            <input class="cf-input" id="cf_no" type="text" placeholder="EI3401" />
+          </label>
+          <label class="cf-field">
+            <span class="cf-label">Time</span>
+            <input class="cf-input" id="cf_time" type="text" placeholder="07:30" maxlength="5" inputmode="numeric" />
+          </label>
+          <label class="cf-field">
+            <span class="cf-label">City</span>
+            <input class="cf-input" id="cf_city" type="text" placeholder="Dublin" />
+          </label>
+          <div class="cf-field cf-field--wide">
+            <span class="cf-label">Airline</span>
+            <div class="ap-picks" id="apPicks">
+              <button type="button" class="ap-btn" data-name="Aer Lingus" data-code="EI">
+                Aer Lingus <span class="ap-code">EI</span>
+              </button>
+              <button type="button" class="ap-btn" data-name="LoganAir" data-code="LM">
+                LoganAir <span class="ap-code">LM</span>
+              </button>
+              <button type="button" class="ap-btn ap-btn--other" id="apOther">
+                Other…
+              </button>
+            </div>
+            <div class="ap-custom" id="apCustom" hidden>
+              <input class="cf-input" id="cf_airline" placeholder="Airline name" autocomplete="off" />
+              <input class="cf-input cf-input--sm" id="cf_code" placeholder="Code" maxlength="3" autocomplete="off" />
+            </div>
+            <input type="hidden" id="cf_airline_val" />
+            <input type="hidden" id="cf_code_val" />
+          </div>
+          <label class="cf-field">
+            <span class="cf-label">Status</span>
+            <select class="cf-input" id="cf_status"></select>
+          </label>
+        </div>
+        <div class="cform__foot">
+          <button class="btn-cf-add" id="cfAddBtn">＋ Add to board</button>
+          <button class="btn-cf-cancel" id="cfCancelBtn">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script src="operator.js"></script>
+</body>
+</html>

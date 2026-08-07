@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Donegal FIDS · Control Panel</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="top__brand">
+      <strong>Donegal FIDS</strong> <span>Control Panel</span>
+    </div>
+    <nav class="top__nav">
+      <a href="/operator">Staff panel</a>
+      <a href="/map">Live map</a>
+      <a href="/" target="_blank" rel="noopener">Open display ↗</a>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <!-- Flights -->
+    <section class="card">
+      <div class="card__head">
+        <h2>Flights</h2>
+        <button class="btn btn--primary" id="addBtn">+ Add flight</button>
+      </div>
+      <div class="board-cols">
+        <div>
+          <h3 class="col-title">↑ Departures</h3>
+          <div id="depList" class="list"></div>
+        </div>
+        <div>
+          <h3 class="col-title">↓ Arrivals</h3>
+          <div id="arrList" class="list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Recurring timetable -->
+    <section class="card">
+      <div class="card__head">
+        <div>
+          <h2>Recurring timetable</h2>
+          <p class="muted">Define flights once — the board fills itself every matching day.</p>
+        </div>
+        <button class="btn btn--primary" id="addSchedBtn">+ Add recurring flight</button>
+      </div>
+      <div id="schedList" class="list"></div>
+    </section>
+
+    <!-- Settings -->
+    <section class="card">
+      <div class="card__head"><h2>Automation &amp; settings</h2></div>
+
+      <div class="grid2">
+        <label class="field field--switch">
+          <input type="checkbox" id="autoSchedule" />
+          <span>Auto-fill board from timetable</span>
+        </label>
+        <label class="field field--switch">
+          <input type="checkbox" id="autoStatus" />
+          <span>Auto-advance status by clock (Boarding → Departed / Landed)</span>
+        </label>
+
+        <label class="field">
+          <span class="field__label">Boarding shows this many minutes before</span>
+          <input type="number" id="boardingLeadMin" min="0" step="5" />
+        </label>
+        <label class="field">
+          <span class="field__label">Remove finished flights after (minutes)</span>
+          <input type="number" id="removeAfterMin" min="0" step="10" />
+        </label>
+
+        <label class="field">
+          <span class="field__label">Display refresh (seconds)</span>
+          <input type="number" id="refreshSeconds" min="5" step="5" />
+        </label>
+        <label class="field field--wide">
+          <span class="field__label">Footer notice / announcement</span>
+          <input type="text" id="noticeText" placeholder="e.g. Security gates close 30 min before departure" />
+        </label>
+      </div>
+
+      <div class="subcard">
+        <h3 class="col-title">Live tracking · OpenSky (free ADS-B)</h3>
+        <div class="grid2">
+          <label class="field field--switch">
+            <input type="checkbox" id="oskyEnabled" />
+            <span>Track real aircraft (delays, departed-origin, map)</span>
+          </label>
+          <div class="field">
+            <span class="field__label">Tracking status</span>
+            <span id="oskyStatus" class="pill">—</span>
+            <a class="btn" href="/map">Open map</a>
+          </div>
+          <label class="field">
+            <span class="field__label">OpenSky Client ID (optional, higher limits)</span>
+            <input type="text" id="oskyId" placeholder="leave blank for anonymous" />
+          </label>
+          <label class="field">
+            <span class="field__label">OpenSky Client Secret (optional)</span>
+            <input type="password" id="oskySecret" placeholder="leave blank for anonymous" />
+          </label>
+        </div>
+        <p class="muted" style="margin-top:8px">Tip: in each timetable flight set the ADS-B callsign (e.g. <code>EAI3402</code>) for reliable matching. Anonymous works but has daily limits — a free account gives more.</p>
+      </div>
+
+      <details class="advanced">
+        <summary>Advanced · optional paid flight API (AeroDataBox)</summary>
+        <div class="grid2">
+          <label class="field field--switch">
+            <input type="checkbox" id="apiEnabled" />
+            <span>Enable API auto-update</span>
+          </label>
+          <div class="field">
+            <span class="field__label">API status</span>
+            <span id="apiStatus" class="pill">—</span>
+            <button class="btn" id="pullBtn" type="button">Pull now</button>
+          </div>
+          <label class="field">
+            <span class="field__label">RapidAPI key</span>
+            <input type="password" id="apiKey" placeholder="paste key…" />
+          </label>
+          <label class="field">
+            <span class="field__label">Poll interval (seconds)</span>
+            <input type="number" id="pollInterval" min="30" step="10" />
+          </label>
+        </div>
+      </details>
+
+      <div class="card__foot">
+        <button class="btn btn--primary" id="saveSettings">Save settings</button>
+        <span id="settingsMsg" class="muted"></span>
+      </div>
+    </section>
+  </main>
+
+  <!-- Flight editor modal -->
+  <div class="modal" id="modal" hidden>
+    <div class="modal__box">
+      <h3 id="modalTitle">Add flight</h3>
+      <input type="hidden" id="f_id" />
+      <div class="grid2">
+        <label class="field">
+          <span class="field__label">Type</span>
+          <select id="f_type">
+            <option value="departure">Departure</option>
+            <option value="arrival">Arrival</option>
+          </select>
+        </label>
+        <label class="field" id="statusField">
+          <span class="field__label">Status</span>
+          <select id="f_status"></select>
+        </label>
+        <label class="field">
+          <span class="field__label">Scheduled time (HH:MM)</span>
+          <input type="text" id="f_time" placeholder="14:30" />
+        </label>
+        <label class="field">
+          <span class="field__label">Estimated time (optional)</span>
+          <input type="text" id="f_estTime" placeholder="14:55" />
+        </label>
+        <label class="field">
+          <span class="field__label">Flight number</span>
+          <input type="text" id="f_flightNo" placeholder="EI3401" />
+        </label>
+        <label class="field">
+          <span class="field__label">City (to / from)</span>
+          <input type="text" id="f_city" placeholder="Dublin" />
+        </label>
+        <label class="field">
+          <span class="field__label">Airline</span>
+          <input type="text" id="f_airline" placeholder="Aer Lingus" />
+        </label>
+        <label class="field">
+          <span class="field__label">Airline code</span>
+          <input type="text" id="f_airlineCode" placeholder="EI" maxlength="3" />
+        </label>
+        <label class="field">
+          <span class="field__label">Codeshare (comma separated)</span>
+          <input type="text" id="f_codeshare" placeholder="BA8911, QR8254" />
+        </label>
+        <label class="field">
+          <span class="field__label">ADS-B callsign (for live tracking)</span>
+          <input type="text" id="f_callsign" placeholder="EAI3402" />
+        </label>
+
+        <label class="field field--wide field--switch" id="lockField">
+          <input type="checkbox" id="f_lockStatus" />
+          <span>Lock status (manual) — stops the auto engine from changing it</span>
+        </label>
+
+        <div class="field field--wide" id="daysField" hidden>
+          <span class="field__label">Operating days</span>
+          <div class="days" id="f_days"></div>
+        </div>
+      </div>
+      <div class="modal__foot">
+        <button class="btn" id="cancelBtn">Cancel</button>
+        <button class="btn btn--primary" id="saveFlight">Save flight</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>

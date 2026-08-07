@@ -1,0 +1,49 @@
+{
+  "airport": {
+    "icao": "EIDL",
+    "name": "Donegal Airport",
+    "lat": 55.0442,
+    "lon": -8.3410
+  },
+  "display": {
+    "timezone": "Europe/Dublin",
+    "autoSchedule": true,
+    "autoStatus": true,
+    "boardingLeadMin": 25,
+    "removeAfterMin": 30,
+    "refreshSeconds": 15,
+    "noticeText": ""
+  },
+  "api": {
+    "enabled": true,
+    "rapidApiKey": "",
+    "lookBackHours": 1,
+    "lookAheadHours": 10
+  },
+  "opensky": {
+    "enabled": true,
+    "clientId": "",
+    "clientSecret": "",
+    "pollSeconds": 90,
+    "bbox": {
+      "lamin": 51.0,
+      "lomin": -11.0,
+      "lamax": 56.5,
+      "lomax": -4.0
+    }
+  },
+  "fr24": {
+    "enabled": true,
+    "apiKey": ""
+  },
+  "flightaware": {
+    "enabled": false,
+    "apiKey": ""
+  },
+  "websiteSync": {
+    "enabled": true,
+    "gistId": "",
+    "gistToken": "",
+    "intervalSeconds": 30
+  }
+}
