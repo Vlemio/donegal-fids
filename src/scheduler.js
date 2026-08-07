@@ -9,15 +9,17 @@ const fs = require('fs');
 const path = require('path');
 const store = require('./store');
 
-const SCHEDULE_FILE = process.env.DATA_DIR
-  ? path.join(process.env.DATA_DIR, 'schedule.json')
-  : path.join(__dirname, '..', 'data', 'schedule.json');
+function getScheduleFile() {
+  return process.env.DATA_DIR
+    ? path.join(process.env.DATA_DIR, 'schedule.json')
+    : path.join(__dirname, '..', 'data', 'schedule.json');
+}
 
 const DOW = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
 
 function readSchedule() {
   try {
-    const data = JSON.parse(fs.readFileSync(SCHEDULE_FILE, 'utf8'));
+    const data = JSON.parse(fs.readFileSync(getScheduleFile(), 'utf8'));
     if (!Array.isArray(data.recurring)) data.recurring = [];
     return data;
   } catch (_) {
@@ -26,7 +28,7 @@ function readSchedule() {
 }
 
 function writeSchedule(data) {
-  fs.writeFileSync(SCHEDULE_FILE, JSON.stringify(data, null, 2), 'utf8');
+  fs.writeFileSync(getScheduleFile(), JSON.stringify(data, null, 2), 'utf8');
   return data;
 }
 
@@ -222,5 +224,5 @@ function cleanupOld(data, cfg, parts) {
 
 module.exports = {
   readSchedule, writeSchedule, localParts, toMinutes,
-  ensureTodaysFlights, autoAdvanceStatus, cleanupOld, SCHEDULE_FILE
+  ensureTodaysFlights, autoAdvanceStatus, cleanupOld, getScheduleFile()
 };

@@ -3,9 +3,12 @@
 const fs = require('fs');
 const path = require('path');
 
-const DATA_FILE = process.env.DATA_DIR
-  ? path.join(process.env.DATA_DIR, 'flights.json')
-  : path.join(__dirname, '..', 'data', 'flights.json');
+function getDataFile() {
+  return process.env.DATA_DIR
+    ? path.join(process.env.DATA_DIR, 'flights.json')
+    : path.join(__dirname, '..', 'data', 'flights.json');
+}
+const DATA_FILE = getDataFile(); // local fallback (no DATA_DIR at load time)
 
 // Canonical status set used across the whole app.
 const STATUSES = [
@@ -16,7 +19,7 @@ const STATUSES = [
 
 function read() {
   try {
-    const raw = fs.readFileSync(DATA_FILE, 'utf8');
+    const raw = fs.readFileSync(getDataFile(), 'utf8');
     const data = JSON.parse(raw);
     if (!Array.isArray(data.flights)) data.flights = [];
     return data;
@@ -27,7 +30,7 @@ function read() {
 
 function write(data) {
   data.lastUpdated = new Date().toISOString();
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+  fs.writeFileSync(getDataFile(), JSON.stringify(data, null, 2), 'utf8');
   return data;
 }
 
