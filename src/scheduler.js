@@ -224,5 +224,5 @@ function cleanupOld(data, cfg, parts) {
 
 module.exports = {
   readSchedule, writeSchedule, localParts, toMinutes,
-  ensureTodaysFlights, autoAdvanceStatus, cleanupOld, getScheduleFile()
+  ensureTodaysFlights, autoAdvanceStatus, cleanupOld, getScheduleFile
 };
