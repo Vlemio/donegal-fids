@@ -1,14 +1,23 @@
 // Vercel Edge Middleware — runs before every request on the CDN edge.
-// Protects the board (/), the admin panel (/admin), and all management
-// API routes with HTTP Basic Auth. GET /api/flights is always public so
-// the airport website can fetch flight data without credentials.
+// Protects the board and admin with cookie-based auth (custom login page).
+// GET /api/flights is always public so the airport website can fetch data.
 //
 // Set FIDS_PASSWORD in Vercel environment variables to enable auth.
-// Leave it unset and the FIDS is open (useful during testing).
+// Leave it unset and the FIDS is open (useful during local testing).
+
+function parseCookies(header) {
+  const out = {};
+  for (const part of (header || '').split(';')) {
+    const eq = part.indexOf('=');
+    if (eq < 0) continue;
+    out[part.slice(0, eq).trim()] = part.slice(eq + 1).trim();
+  }
+  return out;
+}
 
 export default function middleware(request) {
   const pw = process.env.FIDS_PASSWORD;
-  if (!pw) return; // no password set — open
+  if (!pw) return; // no password configured — open
 
   const url      = new URL(request.url);
   const pathname = url.pathname;
@@ -16,25 +25,19 @@ export default function middleware(request) {
   // Public: airport website data feed
   if (pathname === '/api/flights' && request.method === 'GET') return;
 
-  // Public: static assets (CSS, JS, images, fonts)
+  // Public: static assets
   if (/\.(css|js|png|jpg|jpeg|ico|svg|woff2?|map)$/.test(pathname)) return;
 
-  // Tick endpoint uses Bearer token — let the handler validate it
+  // Public: tick (Bearer-authenticated inside the handler) and auth endpoints
   if (pathname === '/api/tick') return;
+  if (pathname === '/api/auth') return;
+  if (pathname === '/login.html' || pathname === '/login') return;
 
-  // Everything else requires Basic auth
-  const auth = request.headers.get('authorization') || '';
-  if (auth.startsWith('Basic ')) {
-    const decoded = atob(auth.slice(6));
-    const colon   = decoded.indexOf(':');
-    const pass    = colon >= 0 ? decoded.slice(colon + 1) : decoded;
-    if (pass === pw) return;
-  }
+  // Check session cookie
+  const cookies = parseCookies(request.headers.get('cookie'));
+  if (cookies['fids_auth'] === pw) return; // authenticated
 
-  return new Response('Donegal Airport FIDS — authentication required', {
-    status: 401,
-    headers: { 'WWW-Authenticate': 'Basic realm="Donegal Airport FIDS"' },
-  });
+  return Response.redirect(new URL('/login.html', request.url).href, 302);
 }
 
 export const config = {

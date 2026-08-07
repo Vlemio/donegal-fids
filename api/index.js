@@ -16,6 +16,7 @@ const kv           = require('../src/kvStore');
 
 const app = express();
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
 // CORS for the public board data endpoint
 app.use((req, res, next) => {
@@ -543,6 +544,24 @@ app.post('/api/flights/:id/restore', async (req, res) => {
   store.write(data);
   await kv.saveFlights();
   res.json(f);
+});
+
+// Cookie-based auth — login form posts here
+app.post('/api/auth', (req, res) => {
+  const pw = process.env.FIDS_PASSWORD;
+  const { username, password } = req.body || {};
+  if (pw && username === 'donegal' && password === pw) {
+    res.setHeader('Set-Cookie',
+      `fids_auth=${pw}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=604800`);
+    return res.redirect(302, '/');
+  }
+  return res.redirect(302, '/login.html?error=1');
+});
+
+app.get('/api/logout', (req, res) => {
+  res.setHeader('Set-Cookie',
+    'fids_auth=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0');
+  res.redirect(302, '/login.html');
 });
 
 module.exports = app;
