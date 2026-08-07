@@ -35,8 +35,11 @@ function _ensureFlightsForDate(data, schedule, date, dow) {
     const id = (s.type === 'arrival' ? 'ARR-' : 'DEP-') + (s.flightNo || '').toUpperCase();
     const existing = data.flights.find((f) => f.id === id);
     if (existing) {
+      // Worker suppressed this flight explicitly for this date — respect it.
       if (existing.suppressed && existing.schedDate === date) continue;
-      if (!existing.schedDate || existing.schedDate === date) continue;
+      // Already the correct date and active — nothing to do.
+      if (existing.schedDate === date) continue;
+      // Wrong date (or no date on a suppressed entry) — replace with fresh entry.
       data.flights = data.flights.filter((f) => f.id !== id);
     }
     const newFlight = store.normalise({ ...s, id, status: 'Scheduled', source: 'schedule', locks: {} });
@@ -85,9 +88,19 @@ function toMinutes(hhmm) {
 // Once all of today's flights are done/suppressed, pre-populates tomorrow's
 // so the board never shows empty between last flight and midnight.
 function ensureTodaysFlights(data, schedule, parts, tz) {
+  // One-time migration: stamp today's date on any active flight that lacks one.
+  // This covers flights written by old code (schedDate was never set) so the
+  // pre-population logic below can distinguish "today's active" from "old suppressed".
+  for (const f of data.flights) {
+    if (!f.suppressed && !f.schedDate) f.schedDate = parts.date;
+  }
+
   _ensureFlightsForDate(data, schedule, parts.date, parts.dow);
 
-  const hasActiveToday = data.flights.some((f) => !f.suppressed && f.schedDate === parts.date);
+  // Count active flights for today — include any that still have no schedDate just in case.
+  const hasActiveToday = data.flights.some(
+    (f) => !f.suppressed && (!f.schedDate || f.schedDate === parts.date)
+  );
   if (!hasActiveToday) {
     const tomorrow = nextDateParts(parts.date, tz || 'Europe/Dublin');
     _ensureFlightsForDate(data, schedule, tomorrow.date, tomorrow.dow);
