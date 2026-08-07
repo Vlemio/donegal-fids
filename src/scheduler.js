@@ -37,9 +37,12 @@ function _ensureFlightsForDate(data, schedule, date, dow) {
     if (existing) {
       // Worker suppressed this flight explicitly for this date — respect it.
       if (existing.suppressed && existing.schedDate === date) continue;
-      // Already the correct date and active — nothing to do.
+      // Already the correct date — nothing to do.
       if (existing.schedDate === date) continue;
-      // Wrong date (or no date on a suppressed entry) — replace with fresh entry.
+      // Entry is pre-populated for a FUTURE date — leave it alone.
+      // (YYYY-MM-DD strings compare correctly as lexicographic order.)
+      if (existing.schedDate && existing.schedDate > date) continue;
+      // Past date or no date on a suppressed entry — replace with fresh entry.
       data.flights = data.flights.filter((f) => f.id !== id);
     }
     const newFlight = store.normalise({ ...s, id, status: 'Scheduled', source: 'schedule', locks: {} });
