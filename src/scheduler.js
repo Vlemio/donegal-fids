@@ -17,6 +17,34 @@ function getScheduleFile() {
 
 const DOW = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
 
+// Given today's 'YYYY-MM-DD' string, return {date, dow} for tomorrow in tz.
+function nextDateParts(todayStr, tz) {
+  const [y, mo, d] = todayStr.split('-').map(Number);
+  const tomorrow = new Date(Date.UTC(y, mo - 1, d + 1, 12, 0, 0)); // noon UTC avoids DST edge
+  const fmt = new Intl.DateTimeFormat('en-GB', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short'
+  });
+  const p = Object.fromEntries(fmt.formatToParts(tomorrow).map((x) => [x.type, x.value]));
+  return { date: `${p.year}-${p.month}-${p.day}`, dow: DOW[p.weekday] };
+}
+
+// Materialise recurring flights for a specific date/dow into data.
+function _ensureFlightsForDate(data, schedule, date, dow) {
+  for (const s of schedule.recurring) {
+    if (!Array.isArray(s.days) || !s.days.includes(dow)) continue;
+    const id = (s.type === 'arrival' ? 'ARR-' : 'DEP-') + (s.flightNo || '').toUpperCase();
+    const existing = data.flights.find((f) => f.id === id);
+    if (existing) {
+      if (existing.suppressed && existing.schedDate === date) continue;
+      if (!existing.schedDate || existing.schedDate === date) continue;
+      data.flights = data.flights.filter((f) => f.id !== id);
+    }
+    const newFlight = store.normalise({ ...s, id, status: 'Scheduled', source: 'schedule', locks: {} });
+    newFlight.schedDate = date;
+    data.flights.push(newFlight);
+  }
+}
+
 function readSchedule() {
   try {
     const data = JSON.parse(fs.readFileSync(getScheduleFile(), 'utf8'));
@@ -54,31 +82,24 @@ function toMinutes(hhmm) {
 // Add today's recurring flights if they aren't on the board yet.
 // Uses a schedDate field to detect stale previous-day entries with the same ID
 // (date-agnostic IDs like ARR-EI3408 would otherwise block tomorrow's flight).
-function ensureTodaysFlights(data, schedule, parts) {
-  for (const s of schedule.recurring) {
-    if (!Array.isArray(s.days) || !s.days.includes(parts.dow)) continue;
-    const id = (s.type === 'arrival' ? 'ARR-' : 'DEP-') + (s.flightNo || '').toUpperCase();
-    const existing = data.flights.find((f) => f.id === id);
-    if (existing) {
-      // Suppressed today: worker removed it from the board. Keep it suppressed
-      // until tomorrow (different schedDate) when it resets to a fresh entry.
-      if (existing.suppressed && existing.schedDate === parts.date) continue;
-      // Only replace if the flight has a schedDate from a PREVIOUS day.
-      if (!existing.schedDate || existing.schedDate === parts.date) continue;
-      // Previous day's flight still lingering — replace it with today's fresh entry.
-      data.flights = data.flights.filter((f) => f.id !== id);
-    }
-    const newFlight = store.normalise({ ...s, id, status: 'Scheduled', source: 'schedule', locks: {} });
-    newFlight.schedDate = parts.date; // survives across the day; compared on next ensureTodaysFlights run
-    data.flights.push(newFlight);
+// Once all of today's flights are done/suppressed, pre-populates tomorrow's
+// so the board never shows empty between last flight and midnight.
+function ensureTodaysFlights(data, schedule, parts, tz) {
+  _ensureFlightsForDate(data, schedule, parts.date, parts.dow);
+
+  const hasActiveToday = data.flights.some((f) => !f.suppressed && f.schedDate === parts.date);
+  if (!hasActiveToday) {
+    const tomorrow = nextDateParts(parts.date, tz || 'Europe/Dublin');
+    _ensureFlightsForDate(data, schedule, tomorrow.date, tomorrow.dow);
   }
 }
 
 // Move statuses forward based on the clock (skips manually locked ones).
 function autoAdvanceStatus(data, cfg, parts) {
   for (const f of data.flights) {
-    if (f.suppressed) continue;              // hidden flight — leave it alone
-    if (f.locks && f.locks.status) continue; // manual override wins
+    if (f.suppressed) continue;                                     // hidden flight
+    if (f.locks && f.locks.status) continue;                        // manual override
+    if (f.schedDate && f.schedDate !== parts.date) continue;        // tomorrow's pre-populated flight
 
     const t = toMinutes(f.time);
     if (t == null) continue;
@@ -197,7 +218,8 @@ function cleanupOld(data, cfg, parts) {
   const depKeep = 120;
   for (const f of data.flights) {
     if (f.locks && f.locks.keep) continue;
-    if (f.suppressed) continue; // already handled
+    if (f.suppressed) continue;                                 // already handled
+    if (f.schedDate && f.schedDate !== parts.date) continue;   // tomorrow's pre-populated flight
     const t = toMinutes(f.time);
     if (t == null) {
       // Timeless flights (no scheduled time): suppress immediately if terminal.

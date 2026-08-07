@@ -178,7 +178,7 @@ function engineTick() {
   const data  = store.read();
   const parts = scheduler.localParts(tz);
   const before = JSON.stringify(data.flights);
-  if (cfg.display.autoSchedule !== false) scheduler.ensureTodaysFlights(data, scheduler.readSchedule(), parts);
+  if (cfg.display.autoSchedule !== false) scheduler.ensureTodaysFlights(data, scheduler.readSchedule(), parts, tz);
   if (cfg.display.autoStatus   !== false) scheduler.autoAdvanceStatus(data, cfg, parts);
   scheduler.cleanupOld(data, cfg, parts);
   if (JSON.stringify(data.flights) !== before) store.write(data);

@@ -407,7 +407,7 @@ function engineTick() {
   let changed = JSON.stringify(data.flights);
 
   if (cfg.display.autoSchedule !== false) {
-    scheduler.ensureTodaysFlights(data, scheduler.readSchedule(), parts);
+    scheduler.ensureTodaysFlights(data, scheduler.readSchedule(), parts, tz);
   }
   if (cfg.display.autoStatus !== false) {
     scheduler.autoAdvanceStatus(data, cfg, parts);
