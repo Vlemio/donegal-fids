@@ -12,7 +12,7 @@ const DATA_FILE = getDataFile(); // local fallback (no DATA_DIR at load time)
 
 // Canonical status set used across the whole app.
 const STATUSES = [
-  'Scheduled', 'On Time', 'Check-in', 'Boarding', 'Final Call', 'Gate Closed',
+  'Scheduled', 'On Time', 'Go to Security', 'Check-in', 'Boarding', 'Final Call', 'Gate Closed',
   'Departed', 'On Approach', 'Delayed', 'En Route', 'Approaching', 'Landed',
   'Cancelled', 'Diverted'
 ];

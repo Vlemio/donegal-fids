@@ -54,11 +54,18 @@ function sortFlights(list) {
   return [...list].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
 }
 
+function displayStatus(f) {
+  const s = f.status || 'Scheduled';
+  if (f.type === 'arrival' && (s === 'En Route' || s === 'Departed')) return 'On Time';
+  return s;
+}
+
 function rowHtml(f) {
   const codeshare = (f.codeshare || []).join('  ');
   const est = f.estTime
     ? `<span class="est ${f.estVeryLate ? 'est--very-late' : f.estLate ? 'est--late' : ''}">EST ${f.estTime}</span>`
     : '';
+  const status = displayStatus(f);
   return `
     <div class="cell cell--time">${f.time || '--:--'}${est}</div>
     <div class="cell cell--airline">
@@ -69,7 +76,7 @@ function rowHtml(f) {
     <div class="cell cell--flight">${f.flightNo || ''}</div>
     <div class="cell cell--code">${codeshare}</div>
     <div class="cell cell--status">
-      <span class="status ${statusClass(f.status)}">${f.status || 'Scheduled'}</span>
+      <span class="status ${statusClass(status)}">${status}</span>
     </div>`;
 }
 
