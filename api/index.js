@@ -226,7 +226,7 @@ async function trackTick() {
     }
 
     // FR24 departure check
-    const DEPART_POLL_COOLDOWN = 3 * 60 * 1000;
+    const DEPART_POLL_COOLDOWN = 60 * 1000;
     const depNowMin = _nowMinsTz((cfg.display && cfg.display.timezone) || 'Europe/Dublin');
     const hasPendingDeparture = freshData.flights.some(f => {
       if (f.type !== 'departure') return false;

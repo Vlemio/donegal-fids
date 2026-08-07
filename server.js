@@ -389,8 +389,9 @@ function startFr24Polling() {
     console.log('[fr24] independent polling disabled');
     return;
   }
-  fr24Timer = setInterval(fr24Tick, 2 * 60 * 1000);
-  console.log('[fr24] independent poll every 2 min (active window only)');
+  fr24Tick(); // immediate first call — don't wait 1 min on startup
+  fr24Timer = setInterval(fr24Tick, 60 * 1000);
+  console.log('[fr24] independent poll every 1 min (active window only)');
 }
 
 app.get('/api/status', (req, res) => res.json(lastPoll));
@@ -502,7 +503,7 @@ async function trackTick() {
     // not confirmed Departed, poll FR24 immediately — datetime_takeoff is authoritative.
     // Catches the gap between the T trigger (fires ~at schedule) and FR24 recording
     // the actual takeoff (1–2 min after wheels-up). Cooldown: 3 min.
-    const DEPART_POLL_COOLDOWN = 3 * 60 * 1000;
+    const DEPART_POLL_COOLDOWN = 60 * 1000;
     const depTz     = (cfg.display && cfg.display.timezone) || 'Europe/Dublin';
     const depNowMin = _nowMinsTz(depTz);
     const hasPendingDeparture = freshData.flights.some(f => {
