@@ -21,6 +21,12 @@ const ARR_STATUSES = [
 
 const DOW_MAP = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
 
+function displayStatus(f) {
+  const s = f.status || 'Scheduled';
+  if (f.type === 'arrival' && (s === 'En Route' || s === 'Departed')) return 'On Time';
+  return s;
+}
+
 let flights  = [];
 let schedule = [];
 
@@ -114,7 +120,7 @@ function buildCard(f, statuses) {
         <div class="fcard__al">${f.airline || ''}</div>
       </div>
       <div class="fcard__badges">
-        <span class="sbadge sbadge--${sk(f.status)}">${f.status}</span>
+        <span class="sbadge sbadge--${sk(displayStatus(f))}">${displayStatus(f)}</span>
         <span class="mbadge mbadge--${manual ? 'manual' : 'auto'}">${manual ? 'MANUAL' : 'AUTO'}</span>
       </div>
     </div>

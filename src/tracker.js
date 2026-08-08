@@ -305,7 +305,14 @@ function track(data, cfg, states, nowDate = new Date()) {
     //   ≥ 60 s → transponder is genuinely off → Landed
     // 60 s is enough: a Go Around takes the aircraft back above ADS-B coverage in < 30 s,
     // so a 60 s gap is unambiguously a transponder-off landing, not a circuit.
-    if (!st && f.type === 'arrival' && f.status === 'On Approach') {
+    // Dropout handler: transponder silence after confirmed approach or close-range En Route.
+    // "On Approach": exact status match.
+    // En Route / Departed + distHomeKm < 35: aircraft was last seen very close to home
+    // (EMA lag may have prevented On Approach from firing) — treat the dropout as a landing.
+    const _wasClose = f.live && f.live.distHomeKm != null && f.live.distHomeKm < 35;
+    if (!st && f.type === 'arrival' &&
+        (f.status === 'On Approach' ||
+         (_wasClose && (f.status === 'En Route' || f.status === 'Departed')))) {
       const dropoutSince = (f.live && f.live.dropoutSince) || nowDate.getTime();
       const missingMs    = nowDate.getTime() - dropoutSince;
       if (missingMs >= 60 * 1000) {
@@ -318,7 +325,8 @@ function track(data, cfg, states, nowDate = new Date()) {
         // Keep On Approach during the wait window.
         // Clear ETA — stale arrival time makes no sense once the plane is silent.
         // f.live stays truthy → scheduler clock won't touch the status.
-        f.live        = { dropoutSince };
+        // Preserve distHomeKm so the _wasClose check keeps working on the next tick.
+        f.live        = { dropoutSince, distHomeKm: f.live ? f.live.distHomeKm : null };
         f.estTime     = null;
         f.estLate     = false;
         f.estVeryLate = false;
@@ -460,12 +468,12 @@ function track(data, cfg, states, nowDate = new Date()) {
             // API set Diverted (e.g. the flight turned away before entering
             // the 50 km zone). Tracker can't confirm wasNearHome so don't
             // override — keep the API's Diverted status until it clears.
-          } else if (etaSecs !== null && etaSecs < 10 * 60 && sameAircraft) {
-            // Require sameAircraft: On Approach cannot fire on the very first
-            // proximity match at close range. The aircraft must have been tracked
-            // for at least one prior tick to confirm it is genuinely approaching
-            // from its origin — not a random aircraft that happened to appear
-            // near EIDL while the real flight hasn't even departed yet.
+          } else if (sameAircraft && (distHome < 30 || (etaSecs !== null && etaSecs < 10 * 60))) {
+            // Within 30 km OR smoothed ETA < 10 min → On Approach.
+            // Distance threshold bypasses EMA lag: the smoothed ETA can take 2-3 ticks
+            // to drop below 10 min even when the aircraft is already at 25 km.
+            // sameAircraft guard: must have been tracked at least one prior tick to
+            // confirm this is the right aircraft, not a random plane near EIDL.
             f.status = 'On Approach';
           } else if (sameAircraft) {
             // En Route / Departed only after at least one prior tracked tick confirms
