@@ -33,6 +33,12 @@ function read() {
 }
 
 function write(data) {
+  // Deduplicate by ID before writing so duplicates can never reach disk or KV.
+  if (Array.isArray(data.flights)) {
+    const byId = new Map();
+    for (const f of data.flights) byId.set(f.id, f);
+    data.flights = Array.from(byId.values());
+  }
   data.lastUpdated = new Date().toISOString();
   fs.writeFileSync(getDataFile(), JSON.stringify(data, null, 2), 'utf8');
   return data;
