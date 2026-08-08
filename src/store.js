@@ -77,7 +77,7 @@ function makeId(flight) {
 // Fields the API is allowed to update (when not locked by staff).
 // fr24hex is the Mode-S ICAO24 from FR24 — stored so matchState can do a direct
 // transponder lookup instead of relying solely on callsign string matching.
-const API_FIELDS = ['time', 'estTime', 'status', 'city', 'airline', 'airlineCode', 'codeshare', 'callsign', 'fr24hex'];
+const API_FIELDS = ['time', 'estTime', 'status', 'city', 'airline', 'airlineCode', 'callsign', 'fr24hex'];
 
 function toMin(hhmm) {
   const m = /(\d{1,2}):(\d{2})/.exec(hhmm || '');
