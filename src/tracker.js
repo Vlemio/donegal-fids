@@ -468,12 +468,11 @@ function track(data, cfg, states, nowDate = new Date()) {
             // API set Diverted (e.g. the flight turned away before entering
             // the 50 km zone). Tracker can't confirm wasNearHome so don't
             // override — keep the API's Diverted status until it clears.
-          } else if (sameAircraft && (distHome < 30 || (etaSecs !== null && etaSecs < 10 * 60))) {
-            // Within 30 km OR smoothed ETA < 10 min → On Approach.
-            // Distance threshold bypasses EMA lag: the smoothed ETA can take 2-3 ticks
-            // to drop below 10 min even when the aircraft is already at 25 km.
-            // sameAircraft guard: must have been tracked at least one prior tick to
-            // confirm this is the right aircraft, not a random plane near EIDL.
+          } else if (distHome < 30 || (sameAircraft && etaSecs !== null && etaSecs < 10 * 60)) {
+            // Within 30 km → On Approach immediately on first match.
+            // At this range (≈16 NM) the aircraft is definitely on approach — we don't
+            // need a prior tracked tick (sameAircraft) to confirm identity.
+            // ETA < 10 min still requires sameAircraft to avoid EMA-inflated first-match ETAs.
             f.status = 'On Approach';
           } else if (sameAircraft) {
             // En Route / Departed only after at least one prior tracked tick confirms

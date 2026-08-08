@@ -57,7 +57,7 @@
       "airlineCode": "LM",
       "city": "Glasgow",
       "flightNo": "LM203",
-      "callsign": "",
+      "callsign": "LOG203",
       "codeshare": [],
       "days": [3]
     },
@@ -69,7 +69,7 @@
       "airlineCode": "LM",
       "city": "Glasgow",
       "flightNo": "LM203",
-      "callsign": "",
+      "callsign": "LOG203",
       "codeshare": [],
       "days": [6]
     },
@@ -81,7 +81,7 @@
       "airlineCode": "LM",
       "city": "Glasgow",
       "flightNo": "LM203",
-      "callsign": "",
+      "callsign": "LOG203",
       "codeshare": [],
       "days": [0]
     },
@@ -93,7 +93,7 @@
       "airlineCode": "LM",
       "city": "Glasgow",
       "flightNo": "LM204",
-      "callsign": "",
+      "callsign": "LOG204",
       "codeshare": [],
       "days": [3]
     },
@@ -105,7 +105,7 @@
       "airlineCode": "LM",
       "city": "Glasgow",
       "flightNo": "LM204",
-      "callsign": "",
+      "callsign": "LOG204",
       "codeshare": [],
       "days": [6]
     },
@@ -117,7 +117,7 @@
       "airlineCode": "LM",
       "city": "Glasgow",
       "flightNo": "LM204",
-      "callsign": "",
+      "callsign": "LOG204",
       "codeshare": [],
       "days": [0]
     }
