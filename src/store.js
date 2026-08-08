@@ -22,6 +22,10 @@ function read() {
     const raw = fs.readFileSync(getDataFile(), 'utf8');
     const data = JSON.parse(raw);
     if (!Array.isArray(data.flights)) data.flights = [];
+    // Safety net: deduplicate by ID in case of corrupted state (last entry wins).
+    const byId = new Map();
+    for (const f of data.flights) byId.set(f.id, f);
+    if (byId.size < data.flights.length) data.flights = Array.from(byId.values());
     return data;
   } catch (err) {
     return { lastUpdated: null, flights: [] };
