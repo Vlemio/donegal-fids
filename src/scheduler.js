@@ -48,7 +48,11 @@ function _ensureFlightsForDate(data, schedule, date, dow) {
       // Entry is pre-populated for a FUTURE date — leave it alone.
       // (YYYY-MM-DD strings compare correctly as lexicographic order.)
       if (existing.schedDate && existing.schedDate > date) continue;
-      // Past date or no date on a suppressed entry — replace with fresh entry.
+      // Past date or no date: only replace once the entry has been suppressed by cleanupOld.
+      // Replacing an active entry (e.g. Landed but still within the cleanup window) stamps
+      // tomorrow's schedDate on it, which blocks cleanupOld from ever suppressing it —
+      // the flight stays on the board forever with an incorrect status.
+      if (!existing.suppressed) continue;
       data.flights = data.flights.filter((f) => f.id !== id);
     }
     const newFlight = store.normalise({ ...s, id, status: 'Scheduled', source: 'schedule', locks: {} });
@@ -102,6 +106,23 @@ function ensureTodaysFlights(data, schedule, parts, tz) {
   // pre-population logic below can distinguish "today's active" from "old suppressed".
   for (const f of data.flights) {
     if (!f.suppressed && !f.schedDate) f.schedDate = parts.date;
+  }
+
+  // Self-heal: a future-dated entry with a real-time status (Landed, Departed, En Route,
+  // On Approach) was corrupted — the tracker or API applied today's flight data to a
+  // pre-populated tomorrow entry after it got tomorrow's schedDate prematurely.
+  // A flight scheduled for a future date cannot have any of these statuses; reset it
+  // to Scheduled so it appears correctly when its day actually arrives.
+  for (const f of data.flights) {
+    if (f.schedDate && f.schedDate > parts.date &&
+        (f.status === 'Landed' || f.status === 'Departed' ||
+         f.status === 'En Route' || f.status === 'On Approach' || f.status === 'Diverted')) {
+      f.status      = 'Scheduled';
+      f.estTime     = null;
+      f.live        = null;
+      f.estLate     = false;
+      f.estVeryLate = false;
+    }
   }
 
   _ensureFlightsForDate(data, schedule, parts.date, parts.dow);
