@@ -210,8 +210,13 @@ function autoAdvanceStatus(data, cfg, parts) {
 
       // "On Approach" is resolved by the ADS-B dropout handler in tracker.js.
       // Fallback: 10+ min past scheduled arrival with no ADS-B → Landed.
+      // When there's no ADS-B signal (!f.live) also use the ETA as a Landed trigger —
+      // a delayed flight's t+10 fires too early if the aircraft is still in the air.
       if (f.status === 'On Approach') {
-        if (now >= t + 10) f.status = 'Landed';
+        const etaMin = toMinutes(f.estTime);
+        if (now >= t + 10 || (!f.live && etaMin !== null && now >= etaMin + 5)) {
+          f.status = 'Landed';
+        }
         continue;
       }
 
@@ -219,7 +224,16 @@ function autoAdvanceStatus(data, cfg, parts) {
       // Don't let the clock overwrite this with On Time / Delayed — that would be wrong
       // (the plane IS in the air). Protect until 60 min past schedule; after that, something
       // went wrong (no ADS-B landing confirmed) and the clock correctly shows Delayed.
-      if ((f.status === 'En Route' || f.status === 'Departed') && now < t + 60) continue;
+      // Time-based On Approach fallback: when there's no ADS-B signal at all and the
+      // FR24/AeroDataBox ETA is within 12 min, trigger On Approach so the board shows
+      // the correct phase instead of staying on On Time until Landed.
+      if ((f.status === 'En Route' || f.status === 'Departed') && now < t + 60) {
+        if (!f.live) {
+          const etaMin = toMinutes(f.estTime || f.time);
+          if (etaMin !== null && now >= etaMin - 12) f.status = 'On Approach';
+        }
+        continue;
+      }
 
       // Clock fallback: Scheduled → On Time → Delayed.
       // Only runs for statuses the clock owns: Scheduled, On Time, Delayed.
