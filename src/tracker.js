@@ -424,21 +424,22 @@ function track(data, cfg, states, nowDate = new Date()) {
         // timer earlier (ADS-B onGround flag lags by a few seconds after touchdown).
         const effectiveOnGround = st.onGround || (st.baroAltitude != null && st.baroAltitude < 61);
         if (effectiveOnGround && distHome < NEAR_KM) {
-          // On the ground at Donegal. Don't set Landed immediately — a Go Around
-          // can briefly report ground contact before the crew climbs away again.
-          // Require 2 continuous minutes of on-ground signal before confirming.
-          // Only start the on-ground timer once the aircraft is confirmed (sameAircraft).
-          // On first proximity match the timer stays null — avoids Landed firing 90 s
-          // after a random aircraft on the EIDL apron is matched to a Dublin flight.
+          // On the ground at Donegal. Short confirmation window to avoid a false
+          // Landed from a brief touch-and-go or a random apron aircraft being matched.
+          // Timer only starts once sameAircraft is confirmed (avoids apron ghost matches).
+          // If the flight was already On Approach when the ground contact was first seen,
+          // a Go Around is extremely unlikely at Donegal — use a 20 s window.
+          // For all other cases (direct on-ground match without prior On Approach) use 45 s.
+          const minGroundMs = (f.status === 'On Approach' || (f.live && f.live.onGroundSince)) ? 20 * 1000 : 45 * 1000;
           const since = (sameAircraft && f.live && f.live.onGroundSince) || (sameAircraft ? nowDate.getTime() : null);
           live.onGroundSince = since;
           if (since !== null) {
             const groundMs = nowDate.getTime() - since;
-            if (groundMs >= 90 * 1000) {
+            if (groundMs >= minGroundMs) {
               f.status = 'Landed';
             }
           }
-          // else: first match or < 90 s on ground — keep current status (On Approach → still monitoring)
+          // else: sameAircraft=false on first match — keep current status until confirmed
         } else if (!effectiveOnGround) {
           // Airborne again — clear on-ground timer (handles Go Around recovery).
           live.onGroundSince = null;
@@ -502,10 +503,7 @@ function track(data, cfg, states, nowDate = new Date()) {
         // know when to expect the plane. Only show when late for other statuses.
         // Never show ETA for a diverted flight — distance-to-Donegal is meaningless.
         if (eta && f.status !== 'Diverted') {
-          if (f.status === 'On Approach' && f.estTime) {
-            // Freeze: EST was set when approach started, don't let ADS-B noise
-            // cause it to jump around in the last ~10 minutes.
-          } else {
+          {
             const inFlight = f.status === 'Departed' || f.status === 'En Route' || f.status === 'On Approach';
             const delay = delayMinutes(f.time, eta);
             f.estTime = (inFlight || delay > 0) ? eta : null;
