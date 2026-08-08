@@ -109,7 +109,8 @@ function mergeApi(apiFlights) {
     // Update only unlocked, API-managed fields on the existing record.
     const locks = existing.locks || {};
     for (const field of API_FIELDS) {
-      if (!locks[field] && flight[field] !== undefined && flight[field] !== '') {
+      if (!locks[field] && flight[field] !== undefined && flight[field] !== '' &&
+          !(field === 'codeshare' && Array.isArray(flight[field]) && flight[field].length === 0)) {
         // Don't let the API downgrade a real-time status that ADS-B or the tracker
         // confirmed. Once a flight is On Approach, Departed, or Landed the API
         // cannot walk it back to Scheduled / On Time / Delayed.
