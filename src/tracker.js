@@ -305,14 +305,14 @@ function track(data, cfg, states, nowDate = new Date()) {
     //   ≥ 60 s → transponder is genuinely off → Landed
     // 60 s is enough: a Go Around takes the aircraft back above ADS-B coverage in < 30 s,
     // so a 60 s gap is unambiguously a transponder-off landing, not a circuit.
-    // Dropout handler: transponder silence after confirmed approach or close-range En Route.
-    // "On Approach": exact status match.
-    // En Route / Departed + distHomeKm < 35: aircraft was last seen very close to home
-    // (EMA lag may have prevented On Approach from firing) — treat the dropout as a landing.
-    const _wasClose = f.live && f.live.distHomeKm != null && f.live.distHomeKm < 35;
-    if (!st && f.type === 'arrival' &&
-        (f.status === 'On Approach' ||
-         (_wasClose && (f.status === 'En Route' || f.status === 'Departed')))) {
+    // Dropout handler: when On Approach, a transponder-off silence means landing.
+    // Can't tell a Go Around from a landing immediately, so wait 60 s:
+    //   < 60 s → coverage gap or Go Around — keep On Approach
+    //   ≥ 60 s → transponder is genuinely off → Landed
+    // Only fires for On Approach: En Route dropout would false-positive at 30-35 km
+    // where a single missed OpenSky poll would prematurely mark the flight Landed.
+    // En Route → Landed is handled by the on-ground timer in the main track block.
+    if (!st && f.type === 'arrival' && f.status === 'On Approach') {
       const dropoutSince = (f.live && f.live.dropoutSince) || nowDate.getTime();
       const missingMs    = nowDate.getTime() - dropoutSince;
       if (missingMs >= 60 * 1000) {
@@ -325,8 +325,7 @@ function track(data, cfg, states, nowDate = new Date()) {
         // Keep On Approach during the wait window.
         // Clear ETA — stale arrival time makes no sense once the plane is silent.
         // f.live stays truthy → scheduler clock won't touch the status.
-        // Preserve distHomeKm so the _wasClose check keeps working on the next tick.
-        f.live        = { dropoutSince, distHomeKm: f.live ? f.live.distHomeKm : null };
+        f.live        = { dropoutSince };
         f.estTime     = null;
         f.estLate     = false;
         f.estVeryLate = false;
