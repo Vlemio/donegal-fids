@@ -503,7 +503,11 @@ function track(data, cfg, states, nowDate = new Date()) {
         // know when to expect the plane. Only show when late for other statuses.
         // Never show ETA for a diverted flight — distance-to-Donegal is meaningless.
         if (eta && f.status !== 'Diverted') {
-          {
+          if (f.status === 'On Approach' && f.estTime && etaSecs !== null && etaSecs < 5 * 60) {
+            // Freeze only in the last 5 min: once the aircraft is this close, ADS-B
+            // taxi/rollout movement would give a garbage ETA. Keep the last good estimate
+            // until Landed fires (~1 min after touchdown with the new 20 s timer).
+          } else {
             const inFlight = f.status === 'Departed' || f.status === 'En Route' || f.status === 'On Approach';
             const delay = delayMinutes(f.time, eta);
             f.estTime = (inFlight || delay > 0) ? eta : null;
