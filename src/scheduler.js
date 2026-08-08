@@ -37,8 +37,14 @@ function _ensureFlightsForDate(data, schedule, date, dow) {
     if (existing) {
       // Worker suppressed this flight explicitly for this date — respect it.
       if (existing.suppressed && existing.schedDate === date) continue;
-      // Already the correct date — nothing to do.
-      if (existing.schedDate === date) continue;
+      // Already the correct date — restore codeshares if API wiped them.
+      if (existing.schedDate === date) {
+        if (Array.isArray(s.codeshare) && s.codeshare.length > 0 &&
+            (!Array.isArray(existing.codeshare) || existing.codeshare.length === 0)) {
+          existing.codeshare = s.codeshare.map((c) => String(c).toUpperCase());
+        }
+        continue;
+      }
       // Entry is pre-populated for a FUTURE date — leave it alone.
       // (YYYY-MM-DD strings compare correctly as lexicographic order.)
       if (existing.schedDate && existing.schedDate > date) continue;
