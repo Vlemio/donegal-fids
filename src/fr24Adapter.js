@@ -59,9 +59,9 @@ const ICAO_TO_CITY = {
 // Typical door-to-door flight duration (minutes) from peer to EIDL.
 // Only used when FR24 has the takeoff time but OpenSky hasn't seen the aircraft yet.
 const ROUTE_MIN = {
-  EIDW: 50,   // Dublin → Donegal
+  EIDW: 41,   // Dublin → Donegal  (observed block time)
   EINN: 55,   // Shannon → Donegal
-  EGPF: 55,   // Glasgow → Donegal
+  EGPF: 41,   // Glasgow → Donegal  (observed block time)
   EGPH: 60,   // Edinburgh → Donegal
   EGAC: 40,   // Belfast City → Donegal
   EGAA: 45,   // Belfast Intl → Donegal
