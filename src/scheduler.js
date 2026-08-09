@@ -242,18 +242,21 @@ function autoAdvanceStatus(data, cfg, parts) {
       }
 
       // En Route / Departed means FR24 confirmed the aircraft left its origin via ADS-B.
-      // Don't let the clock overwrite this with On Time / Delayed — that would be wrong
-      // (the plane IS in the air). Protect until 60 min past schedule; after that, something
-      // went wrong (no ADS-B landing confirmed) and the clock correctly shows Delayed.
-      // Time-based On Approach fallback: when there's no ADS-B signal at all and the
-      // FR24/AeroDataBox ETA is within 12 min, trigger On Approach so the board shows
-      // the correct phase instead of staying on On Time until Landed.
-      if ((f.status === 'En Route' || f.status === 'Departed') && now < t + 60) {
-        if (!f.live) {
-          const etaMin = toMinutes(f.estTime || f.time);
-          if (etaMin !== null && now >= etaMin - 12) f.status = 'On Approach';
+      // Don't let the clock overwrite this with On Time / Delayed — the plane IS in the air.
+      // Protection window: ETA + 30 min when we have a live ETA (flight-positions/full);
+      // fall back to scheduled time + 60 min when no ETA is available. After the window,
+      // something went wrong (no ADS-B landing confirmed) and the clock shows Delayed.
+      // Time-based On Approach fallback: when there's no ADS-B signal and ETA is within
+      // 12 min, trigger On Approach so the board shows the correct phase.
+      if (f.status === 'En Route' || f.status === 'Departed') {
+        const etaMin = toMinutes(f.estTime);
+        const cutoff = etaMin !== null ? etaMin + 30 : t + 60;
+        if (now < cutoff) {
+          if (!f.live) {
+            if (etaMin !== null && now >= etaMin - 12) f.status = 'On Approach';
+          }
+          continue;
         }
-        continue;
       }
 
       // Clock fallback: Scheduled → On Time → Delayed.
