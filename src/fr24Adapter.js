@@ -162,7 +162,15 @@ async function fetchFlights(cfg) {
       const durationMin = ROUTE_MIN[f.orig_icao] || 60;
       const takeoffMs   = parseUtcMs(f.datetime_takeoff);
       entry.estTime     = utcToLocalHHMM(takeoffMs + durationMin * 60 * 1000, tz);
-      if (entry.callsign) inFlightArrivals.push({ entry, fr24_id: f.fr24_id });
+      // Only fetch live ETA near the halfway point (±4 min window).
+      // Early in the flight ROUTE_MIN is good enough; OpenSky takes over for the final approach.
+      if (entry.callsign) {
+        const elapsedMs  = Date.now() - parseUtcMs(f.datetime_takeoff);
+        const halfwayMs  = (ROUTE_MIN[f.orig_icao] || 60) / 2 * 60 * 1000;
+        if (Math.abs(elapsedMs - halfwayMs) <= 4 * 60 * 1000) {
+          inFlightArrivals.push({ entry, fr24_id: f.fr24_id });
+        }
+      }
     }
 
     // Actual landing time: use it as the definitive arrival time on the board.
