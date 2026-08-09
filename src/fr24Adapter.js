@@ -118,6 +118,12 @@ async function fetchFlights(cfg) {
   }, token);
 
   const entries = Array.isArray(data.data) ? data.data : [];
+
+  // TEMP DEBUG: dump raw FR24 fields for any in-flight arrival (has takeoff, no landing).
+  // Remove once we know which ETA fields are available.
+  const inFlight = entries.find(e => e.datetime_takeoff && !e.datetime_landed);
+  if (inFlight) console.log('[FR24-DEBUG] in-flight entry fields:', JSON.stringify(inFlight));
+
   const flights = [];
 
   for (const f of entries) {
