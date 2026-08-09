@@ -166,6 +166,8 @@ async function pollOnce(forceReason) {
 async function fr24Tick() {
   const cfg = readConfig();
   if (!cfg.fr24 || !cfg.fr24.enabled || !cfg.fr24.apiKey) return;
+  // Run every 2 minutes (even UTC minutes only) — halves credit usage with no UX impact.
+  if (Math.floor(Date.now() / 60000) % 2 !== 0) return;
   const data = store.read();
   if (!tracker.isActiveWindow(data, cfg)) return;
   const flights = await fr24Adapter.fetchFlights(cfg);
