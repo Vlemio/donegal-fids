@@ -118,13 +118,8 @@ async function fetchFlights(cfg) {
   }, token);
 
   const entries = Array.isArray(data.data) ? data.data : [];
-
-  // TEMP DEBUG: dump raw FR24 fields for any in-flight arrival (has takeoff, no landing).
-  // Remove once we know which ETA fields are available.
-  const inFlight = entries.find(e => e.datetime_takeoff && !e.datetime_landed);
-  if (inFlight) console.log('[FR24-DEBUG] in-flight entry fields:', JSON.stringify(inFlight));
-
   const flights = [];
+  const inFlightArrivals = []; // pending live-ETA enrichment via flight-positions/full
 
   for (const f of entries) {
     // Only commercial flights (have a flight number, e.g. "EI3402").
@@ -161,13 +156,13 @@ async function fetchFlights(cfg) {
     const peerIcao = isArrival ? f.orig_icao : f.dest_icao;
     if (peerIcao) entry.city = ICAO_TO_CITY[peerIcao] || peerIcao;
 
-    // ETA for in-flight arrivals: actual takeoff + typical route time.
-    // Shows while OpenSky doesn't have the aircraft; position-based ETA from the
-    // ADS-B tracker overwrites this once it picks up the signal.
+    // ETA for in-flight arrivals: set ROUTE_MIN fallback now, then enrich with
+    // FR24's own live ETA (flight-positions/full) after the loop.
     if (isArrival && f.datetime_takeoff && !f.datetime_landed) {
       const durationMin = ROUTE_MIN[f.orig_icao] || 60;
       const takeoffMs   = parseUtcMs(f.datetime_takeoff);
       entry.estTime     = utcToLocalHHMM(takeoffMs + durationMin * 60 * 1000, tz);
+      if (entry.callsign) inFlightArrivals.push({ entry, fr24_id: f.fr24_id });
     }
 
     // Actual landing time: use it as the definitive arrival time on the board.
@@ -176,6 +171,24 @@ async function fetchFlights(cfg) {
     }
 
     flights.push(entry);
+  }
+
+  // Enrich in-flight arrivals with FR24's own live ETA (flight-positions/full).
+  // One batch call covers all concurrent in-flight arrivals.
+  // Falls back silently to the ROUTE_MIN estimate already set above.
+  if (inFlightArrivals.length > 0) {
+    const callsigns = inFlightArrivals.map(a => a.entry.callsign).join(',');
+    try {
+      const posData = await fr24Get('/live/flight-positions/full', { callsigns, limit: 15 }, token);
+      for (const pos of (Array.isArray(posData.data) ? posData.data : [])) {
+        const match = inFlightArrivals.find(a => a.fr24_id === pos.fr24_id);
+        if (match && pos.eta) {
+          match.entry.estTime = utcToLocalHHMM(parseUtcMs(pos.eta), tz);
+        }
+      }
+    } catch (err) {
+      console.warn('[FR24] live-positions/full failed, using ROUTE_MIN fallback:', err.message);
+    }
   }
 
   return flights;
