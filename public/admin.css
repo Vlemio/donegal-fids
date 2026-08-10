@@ -176,14 +176,16 @@ body {
 }
 .status-sel:hover { filter: brightness(1.15); }
 
-.status-wrap[data-slug="auto"]       .status-sel { background-color: #1f2937; color: #9ca3af; }
-.status-wrap[data-slug="scheduled"]  .status-sel { background-color: #1f2937; color: #9ca3af; }
-.status-wrap[data-slug="ontime"]     .status-sel { background-color: #052e16; color: #4ade80; }
-.status-wrap[data-slug="onapproach"] .status-sel { background-color: #431407; color: #fb923c; }
-.status-wrap[data-slug="landed"]     .status-sel { background-color: #0c1a3a; color: #60a5fa; }
-.status-wrap[data-slug="departed"]   .status-sel { background-color: #0c1a3a; color: #818cf8; }
-.status-wrap[data-slug="diverted"]   .status-sel { background-color: #431407; color: #fcd34d; }
-.status-wrap[data-slug="cancelled"]  .status-sel { background-color: #450a0a; color: #fca5a5; }
+.status-wrap[data-slug="auto"]          .status-sel { background-color: #1f2937; color: #9ca3af; }
+.status-wrap[data-slug="scheduled"]    .status-sel { background-color: #1f2937; color: #9ca3af; }
+.status-wrap[data-slug="goscheduled"]  .status-sel { background-color: #1f2937; color: #9ca3af; }
+.status-wrap[data-slug="ontime"]       .status-sel { background-color: #052e16; color: #4ade80; }
+.status-wrap[data-slug="gotosecurity"] .status-sel { background-color: #0d2d2a; color: #2dd4bf; }
+.status-wrap[data-slug="onapproach"]   .status-sel { background-color: #431407; color: #fb923c; }
+.status-wrap[data-slug="landed"]       .status-sel { background-color: #0c1a3a; color: #60a5fa; }
+.status-wrap[data-slug="departed"]     .status-sel { background-color: #0c1a3a; color: #818cf8; }
+.status-wrap[data-slug="diverted"]     .status-sel { background-color: #431407; color: #fcd34d; }
+.status-wrap[data-slug="cancelled"]    .status-sel { background-color: #450a0a; color: #fca5a5; }
 
 .auto-hint {
   font-size: 10px;

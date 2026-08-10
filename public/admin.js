@@ -1,6 +1,7 @@
 /* Donegal FIDS — Control Panel */
 
-const MANUAL_STATUSES = ['Scheduled', 'On Time', 'On Approach', 'Landed', 'Departed', 'Diverted', 'Cancelled'];
+const DEP_STATUSES = ['Go Scheduled', 'On Time', 'Go to Security', 'Departed', 'Cancelled'];
+const ARR_STATUSES = ['Scheduled', 'On Time', 'On Approach', 'Landed', 'Diverted', 'Cancelled'];
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const $ = id => document.getElementById(id);
@@ -23,16 +24,17 @@ async function loadFlights() {
 }
 
 function buildStatusSelect(f) {
-  const locked = !!(f.locks && f.locks.status);
-  const isManual = locked && MANUAL_STATUSES.includes(f.status);
+  const statuses = f.type === 'departure' ? DEP_STATUSES : ARR_STATUSES;
+  const locked   = !!(f.locks && f.locks.status);
+  const isManual = locked && statuses.includes(f.status);
   const wrapSlug = isManual ? slug(f.status) : 'auto';
 
-  const hint = !isManual && f.status && !['Scheduled'].includes(f.status)
+  const hint = !isManual && f.status && !['Scheduled', 'Go Scheduled'].includes(f.status)
     ? `<span class="auto-hint">${f.status}</span>` : '';
 
   const options = [
     `<option value="__auto"${!isManual ? ' selected' : ''}>🔄 Auto</option>`,
-    ...MANUAL_STATUSES.map(s =>
+    ...statuses.map(s =>
       `<option value="${s}"${isManual && f.status === s ? ' selected' : ''}>${s}</option>`
     )
   ].join('');
@@ -81,7 +83,7 @@ function renderFlights(listId, flights) {
         wrap.dataset.slug = 'auto';
       } else {
         const body = { status: val, locks: { status: true } };
-        if (val === 'Cancelled' || val === 'Diverted') {
+        if (['Cancelled', 'Diverted'].includes(val)) {
           body.estTime = null;
           const card = sel.closest('.fcard');
           if (card) { const inp = card.querySelector('.js-est'); if (inp) inp.value = ''; }
