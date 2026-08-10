@@ -161,7 +161,7 @@ async function openModal(key) {
   $('f_codeshare').value = (s.codeshare || []).join(', ');
   $('f_callsign').value  = s.callsign || '';
   buildDays(s.days || []);
-  $('modal').hidden = false;
+  $('modal').classList.add('is-open');
 }
 
 function buildDays(selected = []) {
@@ -177,7 +177,7 @@ function readDays() {
   return [...$('f_days').querySelectorAll('input:checked')].map(c => +c.value);
 }
 
-function closeModal() { $('modal').hidden = true; }
+function closeModal() { $('modal').classList.remove('is-open'); }
 
 async function saveSched() {
   const base = {

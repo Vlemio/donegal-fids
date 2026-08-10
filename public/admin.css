@@ -308,6 +308,9 @@ body {
 
 /* ── Modal ──────────────────────────────────────────── */
 .modal-overlay {
+  display: none;
+}
+.modal-overlay.is-open {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,.7);
