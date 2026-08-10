@@ -6,7 +6,7 @@
   <title>Donegal FIDS · Live Map</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link
-    href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;600;700&display=swap"
     rel="stylesheet" />
   <link rel="stylesheet" href="map.css" />
 </head>
@@ -16,6 +16,7 @@
     <div class="topbar__brand">
       <span class="topbar__code">EIDL</span>
       <span class="topbar__name">Live Map</span>
+      <span class="topbar__live"><span class="live-dot"></span>LIVE</span>
     </div>
     <nav class="topbar__nav">
       <a href="/admin" class="topbar__link">Control panel</a>
@@ -28,7 +29,8 @@
     <aside class="side">
       <header class="side__head">
         <strong>Live Tracking</strong>
-        <span class="side__sub">Donegal Airport · ADS-B</span>
+        <span class="side__sub">54°58′N · 08°20′W</span>
+        <span class="side__sub">Donegal Airport · EIDL · ADS-B</span>
       </header>
 
       <div class="side__status">
@@ -37,11 +39,9 @@
         <button class="btn" id="refreshBtn" type="button">Refresh</button>
       </div>
 
-      <!-- Scheduled flights being tracked -->
       <div class="section-label">Scheduled flights</div>
       <div class="tracked" id="tracked"></div>
 
-      <!-- Extra aircraft heading to EIDL -->
       <div id="possibleSection" style="display:none">
         <div class="section-label section-label--amber">↓ Approaching EIDL</div>
         <div class="possible" id="possible"></div>
