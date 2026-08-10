@@ -1,6 +1,9 @@
 {
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index" }
+    { "source": "/api/(.*)", "destination": "/api/index" },
+    { "source": "/admin",    "destination": "/admin.html" },
+    { "source": "/operator", "destination": "/operator.html" },
+    { "source": "/map",      "destination": "/map.html" }
   ],
   "functions": {
     "api/index.js": {

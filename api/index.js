@@ -163,13 +163,34 @@ async function pollOnce(forceReason) {
   return lastPoll;
 }
 
+// Returns true when any flight is in a time-critical window that warrants 1-min FR24 polling.
+// Arrivals: within 10 min of ETA — to catch Landed as soon as possible.
+// Departures: within ±30 min of estimated departure — to catch Departed quickly.
+function isInFastPollWindow(data, cfg) {
+  const tz  = (cfg.display && cfg.display.timezone) || 'Europe/Dublin';
+  const now = _nowMinsTz(tz);
+  for (const f of data.flights) {
+    if (f.suppressed) continue;
+    if (['Landed', 'Departed', 'Cancelled', 'Diverted'].includes(f.status)) continue;
+    if (f.type === 'arrival') {
+      const etaMin = _hhmToMins(f.estTime) ?? _hhmToMins(f.time);
+      if (etaMin !== null && now >= etaMin - 10) return true;
+    } else {
+      const depMin = _hhmToMins(f.estTime) ?? _hhmToMins(f.time);
+      if (depMin !== null && Math.abs(now - depMin) <= 30) return true;
+    }
+  }
+  return false;
+}
+
 async function fr24Tick() {
   const cfg = readConfig();
   if (!cfg.fr24 || !cfg.fr24.enabled || !cfg.fr24.apiKey) return;
-  // Run every 2 minutes (even UTC minutes only) — halves credit usage with no UX impact.
-  if (Math.floor(Date.now() / 60000) % 2 !== 0) return;
   const data = store.read();
   if (!tracker.isActiveWindow(data, cfg)) return;
+  // Fast-poll every minute when close to an arrival ETA or a departure time.
+  // Otherwise run every 2 minutes (even UTC minutes only) to save credits.
+  if (!isInFastPollWindow(data, cfg) && Math.floor(Date.now() / 60000) % 2 !== 0) return;
   const flights = await fr24Adapter.fetchFlights(cfg);
   store.mergeApi(flights);
 }
