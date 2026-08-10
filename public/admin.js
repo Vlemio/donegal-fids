@@ -199,15 +199,40 @@ async function delSched(key) {
 
 // ── Modal ─────────────────────────────────────────────────────────────────
 
+function clearErrors() {
+  document.querySelectorAll('.field--error').forEach(f => f.classList.remove('field--error'));
+  $('callsignWarn').style.display = 'none';
+}
+
+const PLACEHOLDERS = {
+  LM: { flightNo: 'LM203', city: 'Glasgow',   airline: 'Loganair',  airlineCode: 'LM', callsign: 'LOG203'  },
+  EI: { flightNo: 'EI3401', city: 'Dublin',   airline: 'Aer Lingus', airlineCode: 'EI', callsign: 'EAI3402' },
+};
+
+async function checkFlightDetection(recurring) {
+  const flightNo = $('f_flightNo').value.trim().toUpperCase();
+  const callsign = $('f_callsign').value.trim().toUpperCase();
+  if (!flightNo && !callsign) { $('callsignWarn').style.display = 'none'; return; }
+  const known = recurring.some(r =>
+    (r.flightNo  && r.flightNo.toUpperCase()  === flightNo)  ||
+    (r.callsign  && r.callsign.toUpperCase()  === callsign)
+  );
+  $('callsignWarn').style.display = known ? 'none' : '';
+}
+
 async function openModal(key, defaults = {}) {
+  clearErrors();
   const { recurring = [] } = await fetch('/api/schedule', { cache: 'no-store' }).then(r => r.json());
+  const ph = PLACEHOLDERS[defaults.code] || PLACEHOLDERS.EI;
+
   let s = {
     type: 'departure',
-    airline: defaults.code === 'LM' ? 'Loganair' : 'Aer Lingus',
-    airlineCode: defaults.code || 'EI',
-    days: [1, 2, 3, 4, 5]
+    airline: ph.airline,
+    airlineCode: ph.airlineCode,
+    days: []
   };
   if (key) s = recurring.find(x => x._id === key) || s;
+
   $('modalTitle').textContent = key ? 'Edit scheduled flight' : 'Add scheduled flight';
   $('f_id').value          = s._id || '';
   $('f_type').value        = s.type || 'departure';
@@ -219,6 +244,23 @@ async function openModal(key, defaults = {}) {
   $('f_codeshare').value   = (s.codeshare || []).join(', ');
   $('f_callsign').value    = s.callsign || '';
   buildDays(s.days || []);
+
+  // Update placeholders to match airline context
+  $('f_flightNo').placeholder    = ph.flightNo;
+  $('f_city').placeholder        = ph.city;
+  $('f_airline').placeholder     = ph.airline;
+  $('f_airlineCode').placeholder = ph.airlineCode;
+  $('f_callsign').placeholder    = ph.callsign;
+
+  // Detect unknown flights on blur
+  const onCheck = () => checkFlightDetection(recurring);
+  ['f_flightNo', 'f_callsign'].forEach(id => {
+    const el = $(id);
+    el.removeEventListener('blur', el._detectCheck);
+    el._detectCheck = onCheck;
+    el.addEventListener('blur', onCheck);
+  });
+
   $('modal').classList.add('is-open');
 }
 
@@ -238,6 +280,26 @@ function readDays() {
 function closeModal() { $('modal').classList.remove('is-open'); }
 
 async function saveSched() {
+  clearErrors();
+  let ok = true;
+
+  const require = id => {
+    if (!$(id).value.trim()) {
+      $(id).closest('.field').classList.add('field--error');
+      ok = false;
+    }
+  };
+  require('f_time');
+  require('f_flightNo');
+  require('f_city');
+  require('f_airline');
+  require('f_airlineCode');
+
+  const days = readDays();
+  if (days.length === 0) { $('fDaysWrap').classList.add('field--error'); ok = false; }
+
+  if (!ok) return;
+
   const base = {
     type:        $('f_type').value,
     time:        $('f_time').value.trim(),
@@ -247,9 +309,8 @@ async function saveSched() {
     airlineCode: $('f_airlineCode').value.trim().toUpperCase(),
     codeshare:   $('f_codeshare').value.split(',').map(s => s.trim()).filter(Boolean),
     callsign:    $('f_callsign').value.trim().toUpperCase(),
-    days:        readDays(),
+    days,
   };
-  if (!base.flightNo) { alert('Flight number is required'); return; }
   const id = $('f_id').value;
   if (id) base._id = id;
   await fetch('/api/schedule', {

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>FIDS Control · Donegal Airport</title>
-  <link rel="stylesheet" href="admin.css?v=4">
+  <link rel="stylesheet" href="admin.css?v=5">
 </head>
 <body>
 
@@ -97,7 +97,10 @@
           <span>ADS-B callsign (for live tracking)</span>
           <input type="text" id="f_callsign" placeholder="EAI3402">
         </label>
-        <div class="field field--wide">
+        <div class="callsign-warn field--wide" id="callsignWarn" style="display:none">
+          ⚠ Este vuelo no está registrado en el sistema de seguimiento. Los datos en vivo no se actualizarán automáticamente. <strong>Notifica al Admin Manager.</strong>
+        </div>
+        <div class="field field--wide" id="fDaysWrap">
           <span>Operating days</span>
           <div class="days-row" id="f_days"></div>
         </div>
@@ -109,6 +112,6 @@
     </div>
   </div>
 
-  <script src="admin.js?v=4"></script>
+  <script src="admin.js?v=5"></script>
 </body>
 </html>
