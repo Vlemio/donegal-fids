@@ -1,303 +1,221 @@
-/* Donegal FIDS — control panel logic */
+/* Donegal FIDS — Control Panel */
 
-const STATUSES = [
-  'Scheduled', 'On Time', 'Check-in', 'Boarding', 'Final Call', 'Gate Closed',
-  'Departed', 'On Approach', 'Delayed', 'En Route', 'Approaching', 'Landed',
-  'Cancelled', 'Diverted'
-];
+const MANUAL_STATUSES = ['Scheduled', 'On Time', 'On Approach', 'Landed', 'Departed', 'Diverted', 'Cancelled'];
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const $ = (id) => document.getElementById(id);
-let modalMode = 'flight'; // 'flight' | 'schedule'
+const $ = id => document.getElementById(id);
 
-function statClass(s) { return 'stat--' + String(s).toLowerCase().replace(/[^a-z]/g, ''); }
+function slug(s) {
+  return (s || '').toLowerCase().replace(/\s+/g, '').replace(/[^a-z]/g, '');
+}
 
-/* ===================== Flights ===================== */
+// ── Live board ────────────────────────────────────────────────────────────
+
 async function loadFlights() {
-  const data = await (await fetch('/api/flights', { cache: 'no-store' })).json();
-  const flights = data.flights || [];
-  renderFlights($('depList'), flights.filter((f) => f.type === 'departure'));
-  renderFlights($('arrList'), flights.filter((f) => f.type === 'arrival'));
+  try {
+    const { flights = [] } = await fetch('/api/flights', { cache: 'no-store' }).then(r => r.json());
+    renderFlights('depList', flights.filter(f => f.type === 'departure'));
+    renderFlights('arrList', flights.filter(f => f.type === 'arrival'));
+    $('lastUpdate').textContent = 'Updated ' + new Date().toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    $('lastUpdate').textContent = 'Update failed';
+  }
 }
 
-function renderFlights(container, flights) {
+function buildStatusSelect(f) {
+  const locked = !!(f.locks && f.locks.status);
+  const isManual = locked && MANUAL_STATUSES.includes(f.status);
+  const wrapSlug = isManual ? slug(f.status) : 'auto';
+
+  // When status is auto-managed and not one of our 7, show what the engine has as a hint
+  const hint = !isManual && f.status && !['Scheduled'].includes(f.status)
+    ? `<span class="auto-hint">${f.status}</span>` : '';
+
+  const options = [
+    `<option value="__auto"${!isManual ? ' selected' : ''}>🔄 Auto</option>`,
+    ...MANUAL_STATUSES.map(s =>
+      `<option value="${s}"${isManual && f.status === s ? ' selected' : ''}>${s}</option>`
+    )
+  ].join('');
+
+  return `<div class="status-wrap" data-slug="${wrapSlug}">
+    <select class="status-sel" data-id="${f.id}">${options}</select>${hint}
+  </div>`;
+}
+
+function renderFlights(listId, flights) {
+  const c = $(listId);
   flights.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-  if (!flights.length) { container.innerHTML = '<p class="muted">No flights.</p>'; return; }
-  container.innerHTML = '';
-  for (const f of flights) {
-    const locked = f.locks && f.locks.status;
-    const el = document.createElement('div');
-    el.className = 'flight';
-    el.innerHTML = `
-      <div class="flight__time">${f.time || '--:--'}
-        ${f.estTime ? `<div class="flight__est">Est ${f.estTime}</div>` : ''}
+  if (!flights.length) { c.innerHTML = '<p class="empty">No flights today.</p>'; return; }
+
+  c.innerHTML = flights.map(f => {
+    const hasEst = f.estTime && f.estTime !== f.time;
+    const timeHtml = hasEst
+      ? `<span class="t-sched">${f.time}</span><span class="t-arrow">→</span><span class="t-est">${f.estTime}</span>`
+      : `<span class="t-sched">${f.time || '--:--'}</span>`;
+
+    return `<div class="fcard">
+      <div class="fcard__time">${timeHtml}</div>
+      <div class="fcard__info">
+        <div class="fcard__no">${f.flightNo}</div>
+        <div class="fcard__city">${f.city || ''}</div>
       </div>
-      <div class="flight__main">
-        <div class="flight__no">${f.flightNo}
-          <span class="stat ${statClass(f.status)}">${f.status}</span>
-          ${locked ? '<span class="lock-tag">🔒 manual</span>' : '<span class="lock-tag lock-tag--auto">auto</span>'}
-        </div>
-        <div class="flight__sub">${f.airline} · ${f.city}
-          ${(f.codeshare || []).length ? '· ' + f.codeshare.join(' ') : ''}
-          <span class="src-tag ${f.source === 'api' ? 'src-tag--api' : ''}">${f.source}</span>
-        </div>
+      <div class="fcard__right">
+        ${buildStatusSelect(f)}
+        <label class="est-label">
+          <span>Est.</span>
+          <input class="est-input js-est" type="text" placeholder="--:--"
+            value="${f.estTime || ''}" data-id="${f.id}" maxlength="5">
+        </label>
       </div>
-      <div class="flight__actions">
-        <button class="btn btn--icon" data-edit="${f.id}">Edit</button>
-        <button class="btn btn--icon btn--danger" data-del="${f.id}">✕</button>
-      </div>`;
-    container.appendChild(el);
-  }
-  container.querySelectorAll('[data-edit]').forEach((b) =>
-    b.addEventListener('click', () => openFlight(b.dataset.edit)));
-  container.querySelectorAll('[data-del]').forEach((b) =>
-    b.addEventListener('click', () => delFlight(b.dataset.del)));
+    </div>`;
+  }).join('');
+
+  // Status select
+  c.querySelectorAll('.status-sel').forEach(sel => {
+    const wrap = sel.closest('.status-wrap');
+    sel.addEventListener('change', async () => {
+      const id = sel.dataset.id;
+      const val = sel.value;
+      if (val === '__auto') {
+        await put(id, { locks: { status: false } });
+        wrap.dataset.slug = 'auto';
+      } else {
+        await put(id, { status: val, locks: { status: true } });
+        wrap.dataset.slug = slug(val);
+      }
+      setTimeout(loadFlights, 400);
+    });
+  });
+
+  // Est time input
+  c.querySelectorAll('.js-est').forEach(inp => {
+    inp.addEventListener('change', () => put(inp.dataset.id, { estTime: inp.value.trim() || null }));
+  });
 }
 
-async function delFlight(id) {
-  if (!confirm('Delete this flight from the board?')) return;
-  await fetch(`/api/flights/${id}`, { method: 'DELETE' });
-  loadFlights();
+async function put(id, body) {
+  return fetch(`/api/flights/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
 }
 
-/* ===================== Timetable ===================== */
+// ── Schedule ──────────────────────────────────────────────────────────────
+
 async function loadSchedule() {
-  const data = await (await fetch('/api/schedule', { cache: 'no-store' })).json();
-  const list = data.recurring || [];
-  const c = $('schedList');
-  if (!list.length) { c.innerHTML = '<p class="muted">No recurring flights yet.</p>'; return; }
-  list.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-  c.innerHTML = '';
-  for (const s of list) {
-    const days = (s.days || []).map((d) => DAY_LABELS[d]).join(' ');
-    const key = s._id || `${s.type}|${s.flightNo}`;
-    const el = document.createElement('div');
-    el.className = 'flight';
-    el.innerHTML = `
-      <div class="flight__time">${s.time || '--:--'}
-        <div class="flight__est">${s.type === 'arrival' ? '↓ arr' : '↑ dep'}</div>
-      </div>
-      <div class="flight__main">
-        <div class="flight__no">${s.flightNo}</div>
-        <div class="flight__sub">${s.airline} · ${s.city} · <span class="days-tag">${days || 'no days set'}</span></div>
-      </div>
-      <div class="flight__actions">
-        <button class="btn btn--icon" data-sedit="${key}">Edit</button>
-        <button class="btn btn--icon btn--danger" data-sdel="${key}">✕</button>
-      </div>`;
-    c.appendChild(el);
-  }
-  c.querySelectorAll('[data-sedit]').forEach((b) =>
-    b.addEventListener('click', () => openSchedule(b.dataset.sedit)));
-  c.querySelectorAll('[data-sdel]').forEach((b) =>
-    b.addEventListener('click', () => delSchedule(b.dataset.sdel)));
+  const { recurring = [] } = await fetch('/api/schedule', { cache: 'no-store' }).then(r => r.json());
+  recurring.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+  const emerald  = recurring.filter(s => (s.flightNo || '').startsWith('EI'));
+  const loganair = recurring.filter(s => (s.flightNo || '').startsWith('LM'));
+  const other    = recurring.filter(s => !s.flightNo?.startsWith('EI') && !s.flightNo?.startsWith('LM'));
+  renderSched('schedEmerald',  [...emerald, ...other]);
+  renderSched('schedLoganair', loganair);
 }
 
-async function delSchedule(key) {
-  if (!confirm('Remove from timetable? (does not remove flights already on the board today)')) return;
+function renderSched(listId, entries) {
+  const c = $(listId);
+  if (!entries.length) { c.innerHTML = '<p class="empty">No flights.</p>'; return; }
+  c.innerHTML = entries.map(s => {
+    const days = (s.days || []).map(d => DAY_LABELS[d]).join(' · ');
+    const key  = s._id || `${s.type}|${s.flightNo}`;
+    const dir  = s.type === 'arrival' ? '↓' : '↑';
+    const dirClass = s.type === 'arrival' ? 'arr' : 'dep';
+    return `<div class="scard">
+      <div class="scard__dir scard__dir--${dirClass}">${dir}</div>
+      <div class="scard__info">
+        <div class="scard__no">${s.flightNo} <span class="scard__time">${s.time}</span></div>
+        <div class="scard__days">${days || '—'}</div>
+      </div>
+      <div class="scard__actions">
+        <button class="btn btn--sm" data-sedit="${key}">Edit</button>
+        <button class="btn btn--sm btn--danger" data-sdel="${key}">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+  c.querySelectorAll('[data-sedit]').forEach(b => b.addEventListener('click', () => openModal(b.dataset.sedit)));
+  c.querySelectorAll('[data-sdel]').forEach(b => b.addEventListener('click', () => delSched(b.dataset.sdel)));
+}
+
+async function delSched(key) {
+  if (!confirm('Remove this flight from the timetable?')) return;
   await fetch(`/api/schedule/by-id/${encodeURIComponent(key)}`, { method: 'DELETE' });
   loadSchedule();
 }
 
-/* ===================== Modal ===================== */
-function fillStatusSelect() { $('f_status').innerHTML = STATUSES.map((s) => `<option>${s}</option>`).join(''); }
+// ── Modal ─────────────────────────────────────────────────────────────────
 
-function buildDays(selected = []) {
-  $('f_days').innerHTML = DAY_LABELS.map((d, i) =>
-    `<label class="day"><input type="checkbox" value="${i}" ${selected.includes(i) ? 'checked' : ''}>${d}</label>`
-  ).join('');
-}
-function readDays() {
-  return [...$('f_days').querySelectorAll('input:checked')].map((c) => Number(c.value));
-}
-
-function setMode(mode) {
-  modalMode = mode;
-  const isSched = mode === 'schedule';
-  $('statusField').hidden = isSched;
-  $('lockField').hidden = isSched;
-  $('daysField').hidden = !isSched;
-}
-
-let flightCache = [];
-async function openFlight(id) {
-  setMode('flight');
-  flightCache = (await (await fetch('/api/flights', { cache: 'no-store' })).json()).flights || [];
-  const f = flightCache.find((x) => x.id === id) ||
-    { type: 'departure', status: 'Scheduled', codeshare: [], airline: 'Aer Lingus', airlineCode: 'EI', locks: {} };
-  $('modalTitle').textContent = id ? 'Edit flight' : 'Add flight';
-  $('f_id').value = id || '';
-  $('f_type').value = f.type;
-  $('f_status').value = f.status;
-  $('f_time').value = f.time || '';
-  $('f_estTime').value = f.estTime || '';
-  $('f_flightNo').value = f.flightNo || '';
-  $('f_city').value = f.city || '';
-  $('f_airline').value = f.airline || '';
-  $('f_airlineCode').value = f.airlineCode || '';
-  $('f_codeshare').value = (f.codeshare || []).join(', ');
-  $('f_callsign').value = f.callsign || '';
-  $('f_lockStatus').checked = !!(f.locks && f.locks.status);
-  $('modal').hidden = false;
-}
-
-let schedCache = [];
-async function openSchedule(key) {
-  setMode('schedule');
-  schedCache = (await (await fetch('/api/schedule', { cache: 'no-store' })).json()).recurring || [];
-  let s = { type: 'departure', codeshare: [], airline: 'Aer Lingus', airlineCode: 'EI', days: [1, 2, 3, 4, 5] };
-  if (key) {
-    s = schedCache.find((x) => x._id === key) || s;
-  }
-  $('modalTitle').textContent = key ? 'Edit recurring flight' : 'Add recurring flight';
-  $('f_id').value = s._id || '';
-  $('f_type').value = s.type;
-  $('f_time').value = s.time || '';
-  $('f_estTime').value = '';
-  $('f_flightNo').value = s.flightNo || '';
-  $('f_city').value = s.city || '';
-  $('f_airline').value = s.airline || '';
+async function openModal(key) {
+  const { recurring = [] } = await fetch('/api/schedule', { cache: 'no-store' }).then(r => r.json());
+  let s = { type: 'departure', airline: 'Aer Lingus', airlineCode: 'EI', days: [1,2,3,4,5] };
+  if (key) s = recurring.find(x => x._id === key) || s;
+  $('modalTitle').textContent = key ? 'Edit scheduled flight' : 'Add scheduled flight';
+  $('f_id').value        = s._id || '';
+  $('f_type').value      = s.type || 'departure';
+  $('f_time').value      = s.time || '';
+  $('f_flightNo').value  = s.flightNo || '';
+  $('f_city').value      = s.city || '';
+  $('f_airline').value   = s.airline || '';
   $('f_airlineCode').value = s.airlineCode || '';
   $('f_codeshare').value = (s.codeshare || []).join(', ');
-  $('f_callsign').value = s.callsign || '';
+  $('f_callsign').value  = s.callsign || '';
   buildDays(s.days || []);
   $('modal').hidden = false;
 }
 
-function closeEditor() { $('modal').hidden = true; }
+function buildDays(selected = []) {
+  $('f_days').innerHTML = DAY_LABELS.map((d, i) =>
+    `<label class="day-btn">
+      <input type="checkbox" value="${i}"${selected.includes(i) ? ' checked' : ''}>
+      <span>${d}</span>
+    </label>`
+  ).join('');
+}
 
-async function saveModal() {
+function readDays() {
+  return [...$('f_days').querySelectorAll('input:checked')].map(c => +c.value);
+}
+
+function closeModal() { $('modal').hidden = true; }
+
+async function saveSched() {
   const base = {
-    type: $('f_type').value,
-    time: $('f_time').value.trim(),
-    flightNo: $('f_flightNo').value.trim().toUpperCase(),
-    city: $('f_city').value.trim(),
-    airline: $('f_airline').value.trim(),
+    type:        $('f_type').value,
+    time:        $('f_time').value.trim(),
+    flightNo:    $('f_flightNo').value.trim().toUpperCase(),
+    city:        $('f_city').value.trim(),
+    airline:     $('f_airline').value.trim(),
     airlineCode: $('f_airlineCode').value.trim().toUpperCase(),
-    codeshare: $('f_codeshare').value.split(',').map((s) => s.trim()).filter(Boolean),
-    callsign: $('f_callsign').value.trim().toUpperCase()
+    codeshare:   $('f_codeshare').value.split(',').map(s => s.trim()).filter(Boolean),
+    callsign:    $('f_callsign').value.trim().toUpperCase(),
+    days:        readDays(),
   };
   if (!base.flightNo) { alert('Flight number is required'); return; }
-
-  if (modalMode === 'schedule') {
-    base.days = readDays();
-    const schedId = $('f_id').value;
-    if (schedId) base._id = schedId;
-    await fetch('/api/schedule', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(base)
-    });
-    closeEditor();
-    loadSchedule();
-    loadFlights();
-    return;
-  }
-
-  // flight mode
-  base.status = $('f_status').value;
-  base.estTime = $('f_estTime').value.trim() || null;
-  base.locks = { status: $('f_lockStatus').checked };
   const id = $('f_id').value;
-  if (id) {
-    await fetch(`/api/flights/${id}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(base)
-    });
-  } else {
-    await fetch('/api/flights', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(base)
-    });
-  }
-  closeEditor();
-  loadFlights();
-}
-
-/* ===================== Settings ===================== */
-async function loadConfig() {
-  const cfg = await (await fetch('/api/config')).json();
-  $('autoSchedule').checked = cfg.display.autoSchedule !== false;
-  $('autoStatus').checked = cfg.display.autoStatus !== false;
-  $('boardingLeadMin').value = cfg.display.boardingLeadMin ?? 25;
-  $('removeAfterMin').value = cfg.display.removeAfterMin ?? 60;
-  $('refreshSeconds').value = cfg.display.refreshSeconds || 15;
-  $('noticeText').value = cfg.display.noticeText || '';
-  $('apiEnabled').checked = !!cfg.api.enabled;
-  $('apiKey').value = cfg.api.rapidApiKey || '';
-  $('pollInterval').value = cfg.api.pollIntervalSeconds || 120;
-  const osky = cfg.opensky || {};
-  $('oskyEnabled').checked = osky.enabled !== false;
-  $('oskyId').value = osky.clientId || '';
-  $('oskySecret').value = osky.clientSecret || '';
-  refreshApiStatus();
-  refreshLiveStatus();
-}
-
-async function saveSettings() {
-  const body = {
-    display: {
-      autoSchedule: $('autoSchedule').checked,
-      autoStatus: $('autoStatus').checked,
-      boardingLeadMin: Number($('boardingLeadMin').value) || 0,
-      removeAfterMin: Number($('removeAfterMin').value) || 0,
-      refreshSeconds: Number($('refreshSeconds').value) || 15,
-      noticeText: $('noticeText').value.trim()
-    },
-    api: {
-      enabled: $('apiEnabled').checked,
-      rapidApiKey: $('apiKey').value.trim(),
-      pollIntervalSeconds: Number($('pollInterval').value) || 120
-    },
-    opensky: {
-      enabled: $('oskyEnabled').checked,
-      clientId: $('oskyId').value.trim(),
-      clientSecret: $('oskySecret').value.trim()
-    }
-  };
-  await fetch('/api/config', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  if (id) base._id = id;
+  await fetch('/api/schedule', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(base)
   });
-  $('settingsMsg').textContent = 'Saved ✓';
-  setTimeout(() => ($('settingsMsg').textContent = ''), 2000);
-  refreshApiStatus();
+  closeModal();
+  loadSchedule();
   loadFlights();
 }
 
-async function refreshApiStatus() {
-  try {
-    const s = await (await fetch('/api/status')).json();
-    const pill = $('apiStatus');
-    pill.textContent = s.message || '—';
-    pill.className = 'pill ' + (s.ok ? 'pill--ok' : s.ok === false ? 'pill--err' : '');
-  } catch (_) {}
-}
+// ── Wire up ───────────────────────────────────────────────────────────────
 
-async function refreshLiveStatus() {
-  try {
-    const s = await (await fetch('/api/live')).json();
-    const pill = $('oskyStatus');
-    pill.textContent = s.message || '—';
-    pill.className = 'pill ' + (s.ok ? 'pill--ok' : s.ok === false ? 'pill--err' : '');
-  } catch (_) {}
-}
+$('schedToggle').addEventListener('click', () => {
+  const p = $('schedPanel');
+  p.hidden = !p.hidden;
+  $('schedArrow').textContent = p.hidden ? '▼' : '▲';
+  if (!p.hidden) loadSchedule();
+});
 
-async function pullNow() {
-  $('apiStatus').textContent = 'Pulling…';
-  await fetch('/api/pull', { method: 'POST' });
-  refreshApiStatus();
-  loadFlights();
-}
-
-/* ===================== Wire up ===================== */
-fillStatusSelect();
-$('addBtn').addEventListener('click', () => openFlight(''));
-$('addSchedBtn').addEventListener('click', () => openSchedule(''));
-$('cancelBtn').addEventListener('click', closeEditor);
-$('saveFlight').addEventListener('click', saveModal);
-$('saveSettings').addEventListener('click', saveSettings);
-$('pullBtn').addEventListener('click', pullNow);
-$('modal').addEventListener('click', (e) => { if (e.target.id === 'modal') closeEditor(); });
+$('addSchedBtn').addEventListener('click', () => openModal(''));
+$('modalClose').addEventListener('click',  closeModal);
+$('modalCancel').addEventListener('click', closeModal);
+$('saveSched').addEventListener('click',   saveSched);
+$('modal').addEventListener('click', e => { if (e.target === $('modal')) closeModal(); });
 
 loadFlights();
-loadSchedule();
-loadConfig();
 setInterval(loadFlights, 10000);
-setInterval(refreshApiStatus, 15000);
-setInterval(refreshLiveStatus, 15000);
