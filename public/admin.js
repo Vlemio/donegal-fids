@@ -212,10 +212,13 @@ $('schedToggle').addEventListener('click', () => {
 });
 
 $('addSchedBtn').addEventListener('click', () => openModal(''));
-$('modalClose').addEventListener('click',  closeModal);
-$('modalCancel').addEventListener('click', closeModal);
-$('saveSched').addEventListener('click',   saveSched);
-$('modal').addEventListener('click', e => { if (e.target === $('modal')) closeModal(); });
+
+// Modal close — three ways: X button, Cancel button, backdrop click, Escape key
+document.querySelectorAll('#modalClose, #modalCancel').forEach(el => el.addEventListener('click', closeModal));
+$('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+$('saveSched').addEventListener('click', saveSched);
 
 loadFlights();
 setInterval(loadFlights, 10000);
