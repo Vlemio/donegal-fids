@@ -1,6 +1,6 @@
 /* Donegal FIDS — Control Panel */
 
-const DEP_STATUSES = ['Go Scheduled', 'On Time', 'Go to Security', 'Departed', 'Cancelled'];
+const DEP_STATUSES = ['Scheduled', 'On Time', 'Go to Security', 'Departed', 'Cancelled'];
 const ARR_STATUSES = ['Scheduled', 'On Time', 'On Approach', 'Landed', 'Diverted', 'Cancelled'];
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -29,7 +29,7 @@ function buildStatusSelect(f) {
   const isManual = locked && statuses.includes(f.status);
   const wrapSlug = isManual ? slug(f.status) : 'auto';
 
-  const hint = !isManual && f.status && !['Scheduled', 'Go Scheduled'].includes(f.status)
+  const hint = !isManual && f.status && !['Scheduled'].includes(f.status)
     ? `<span class="auto-hint">${f.status}</span>` : '';
 
   const options = [

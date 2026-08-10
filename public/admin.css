@@ -178,7 +178,6 @@ body {
 
 .status-wrap[data-slug="auto"]          .status-sel { background-color: #1f2937; color: #9ca3af; }
 .status-wrap[data-slug="scheduled"]    .status-sel { background-color: #1f2937; color: #9ca3af; }
-.status-wrap[data-slug="goscheduled"]  .status-sel { background-color: #1f2937; color: #9ca3af; }
 .status-wrap[data-slug="ontime"]       .status-sel { background-color: #052e16; color: #4ade80; }
 .status-wrap[data-slug="gotosecurity"] .status-sel { background-color: #0d2d2a; color: #2dd4bf; }
 .status-wrap[data-slug="onapproach"]   .status-sel { background-color: #431407; color: #fb923c; }

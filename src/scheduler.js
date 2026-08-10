@@ -292,9 +292,11 @@ function cleanupOld(data, cfg, parts) {
     }
 
     const shouldSuppress =
-      (f.type === 'departure' && f.status === 'Departed' && parts.minutes > t + depKeep) ||
-      (f.type === 'arrival'   && f.status === 'Landed'   && parts.minutes > t + arrKeep) ||
-      (f.type === 'arrival'   && f.status === 'Delayed'  && parts.minutes > t + 90);
+      (f.type === 'departure' && f.status === 'Departed'  && parts.minutes > t + depKeep) ||
+      (f.type === 'arrival'   && f.status === 'Landed'    && parts.minutes > t + arrKeep) ||
+      (f.type === 'arrival'   && f.status === 'Delayed'   && parts.minutes > t + 90)     ||
+      (f.status === 'Cancelled' && parts.minutes > t + 120) ||
+      (f.status === 'Diverted'  && parts.minutes > t + 120);
 
     if (shouldSuppress) {
       f.suppressed = true;
