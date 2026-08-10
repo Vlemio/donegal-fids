@@ -143,8 +143,17 @@
   </div>
 
   <script>
-    if (new URLSearchParams(location.search).get('error'))
-      document.getElementById('err').classList.add('visible');
+    const params = new URLSearchParams(location.search);
+    const err    = params.get('error');
+    const errEl  = document.getElementById('err');
+    if (err === 'locked') {
+      const mins = params.get('mins') || 15;
+      errEl.textContent = `Too many attempts — try again in ${mins} min.`;
+      errEl.classList.add('visible');
+      document.querySelector('button[type="submit"]').disabled = true;
+    } else if (err) {
+      errEl.classList.add('visible');
+    }
   </script>
 </body>
 </html>

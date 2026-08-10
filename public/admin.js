@@ -6,6 +6,18 @@ const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const $ = id => document.getElementById(id);
 
+// Fetch wrapper — redirects to login on 401 so expired sessions are handled cleanly.
+// Returns a dummy empty-JSON Response so callers with .then(r => r.json()) don't crash
+// while the redirect is already underway.
+async function apiFetch(url, opts) {
+  const res = await apiFetch(url, opts);
+  if (res.status === 401) {
+    location.href = '/login.html';
+    return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+  return res;
+}
+
 function slug(s) {
   return (s || '').toLowerCase().replace(/\s+/g, '').replace(/[^a-z]/g, '');
 }
@@ -14,7 +26,7 @@ function slug(s) {
 
 async function loadFlights() {
   try {
-    const { flights = [] } = await fetch('/api/flights', { cache: 'no-store' }).then(r => r.json());
+    const { flights = [] } = await apiFetch('/api/flights', { cache: 'no-store' }).then(r => r.json());
     renderFlights('depList', flights.filter(f => f.type === 'departure'));
     renderFlights('arrList', flights.filter(f => f.type === 'arrival'));
     $('lastUpdate').textContent = 'Updated ' + new Date().toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' });
@@ -102,7 +114,7 @@ function renderFlights(listId, flights) {
 }
 
 async function put(id, body) {
-  return fetch(`/api/flights/${id}`, {
+  return apiFetch(`/api/flights/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
@@ -112,7 +124,7 @@ async function put(id, body) {
 // ── Schedule ──────────────────────────────────────────────────────────────
 
 async function loadSchedule() {
-  const { recurring = [] } = await fetch('/api/schedule', { cache: 'no-store' }).then(r => r.json());
+  const { recurring = [] } = await apiFetch('/api/schedule', { cache: 'no-store' }).then(r => r.json());
   const emerald  = recurring.filter(s => (s.flightNo || '').startsWith('EI'));
   const loganair = recurring.filter(s => (s.flightNo || '').startsWith('LM'));
   const other    = recurring.filter(s => !s.flightNo?.startsWith('EI') && !s.flightNo?.startsWith('LM'));
@@ -195,7 +207,7 @@ function renderAirlineSection(title, code, entries) {
 
 async function delSched(key) {
   if (!confirm('Remove this flight from the timetable?')) return;
-  await fetch(`/api/schedule/by-id/${encodeURIComponent(key)}`, { method: 'DELETE' });
+  await apiFetch(`/api/schedule/by-id/${encodeURIComponent(key)}`, { method: 'DELETE' });
   loadSchedule();
 }
 
@@ -224,7 +236,7 @@ async function checkFlightDetection(recurring) {
 
 async function openModal(key, defaults = {}) {
   clearErrors();
-  const { recurring = [] } = await fetch('/api/schedule', { cache: 'no-store' }).then(r => r.json());
+  const { recurring = [] } = await apiFetch('/api/schedule', { cache: 'no-store' }).then(r => r.json());
   const ph = PLACEHOLDERS[defaults.code] || PLACEHOLDERS.EI;
 
   let s = {
@@ -315,7 +327,7 @@ async function saveSched() {
   };
   const id = $('f_id').value;
   if (id) base._id = id;
-  await fetch('/api/schedule', {
+  await apiFetch('/api/schedule', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(base)
   });
   closeModal();

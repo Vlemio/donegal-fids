@@ -33,6 +33,50 @@ app.use(async (req, res, next) => {
   next();
 });
 
+// ---- Auth helpers -----------------------------------------------------------
+function parseCookies(header) {
+  return (header || '').split(';').reduce((acc, part) => {
+    const [k, ...v] = part.trim().split('=');
+    if (k) acc[k.trim()] = v.join('=').trim();
+    return acc;
+  }, {});
+}
+
+// Brute-force guard on the login form: 5 wrong passwords from same IP → 15-min lockout.
+// In-memory — acceptable for serverless (resets on cold start; cold starts clear old attacks).
+const _loginFails  = new Map();
+const LOGIN_MAX    = 5;
+const LOGIN_LOCK   = 15 * 60 * 1000;
+
+function getIp(req) {
+  return (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+    || req.socket?.remoteAddress
+    || 'unknown';
+}
+
+// Routes that don't need auth
+const PUBLIC_ROUTES = [
+  { m: 'GET',  p: '/api/flights' },   // public board data for the airport website
+  { m: 'POST', p: '/api/auth' },      // login form
+  { m: 'GET',  p: '/api/logout' },    // logout (clears cookie — no auth needed)
+  { m: 'GET',  p: '/api/tick' },      // cron-job.org — has its own TICK_SECRET check
+  { m: 'POST', p: '/api/tick' },
+];
+
+// Auth wall — runs before every API route.
+// Returns 401 JSON (not a redirect) so admin.js fetch calls can detect it cleanly.
+app.use((req, res, next) => {
+  const pw = process.env.FIDS_PASSWORD;
+  if (!pw) return next(); // dev mode — no password set, open access
+
+  if (PUBLIC_ROUTES.some(r => r.m === req.method && r.p === req.path)) return next();
+
+  const cookies = parseCookies(req.headers.cookie);
+  if (cookies.fids_auth === pw) return next();
+
+  return res.status(401).json({ error: 'Authentication required' });
+});
+
 // ---- Config helpers (same overlay logic as server.js) ----------------------
 function readConfig() {
   const cfgPath = kv.HAS_KV
@@ -573,11 +617,27 @@ app.post('/api/flights/:id/restore', async (req, res) => {
 app.post('/api/auth', (req, res) => {
   const pw = process.env.FIDS_PASSWORD;
   const { username, password } = req.body || {};
+  const ip = getIp(req);
+  const record = _loginFails.get(ip) || { count: 0, until: 0 };
+
+  if (record.until > Date.now()) {
+    const mins = Math.ceil((record.until - Date.now()) / 60000);
+    return res.redirect(302, `/login.html?error=locked&mins=${mins}`);
+  }
+
   if (pw && username === 'donegal' && password === pw) {
+    _loginFails.delete(ip);
     res.setHeader('Set-Cookie',
       `fids_auth=${pw}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=604800`);
     return res.redirect(302, '/');
   }
+
+  record.count += 1;
+  if (record.count >= LOGIN_MAX) {
+    record.until = Date.now() + LOGIN_LOCK;
+    console.warn(`[auth] IP ${ip} locked out after ${record.count} failed login attempts`);
+  }
+  _loginFails.set(ip, record);
   return res.redirect(302, '/login.html?error=1');
 });
 
