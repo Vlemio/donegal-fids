@@ -11,6 +11,19 @@
   <link rel="stylesheet" href="map.css" />
 </head>
 <body>
+
+  <header class="topbar">
+    <div class="topbar__brand">
+      <span class="topbar__code">EIDL</span>
+      <span class="topbar__name">Live Map</span>
+    </div>
+    <nav class="topbar__nav">
+      <a href="/admin" class="topbar__link">Control panel</a>
+      <a href="/" target="_blank" rel="noopener" class="topbar__link">Open display ↗</a>
+      <a href="/api/logout" class="topbar__link topbar__link--logout">Log out</a>
+    </nav>
+  </header>
+
   <div class="layout">
     <aside class="side">
       <header class="side__head">
@@ -34,10 +47,6 @@
         <div class="possible" id="possible"></div>
       </div>
 
-      <footer class="side__foot">
-        <a href="/admin">← Control panel</a>
-        <a href="/" target="_blank">Display ↗</a>
-      </footer>
     </aside>
 
     <div id="map"></div>

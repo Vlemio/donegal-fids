@@ -4,9 +4,43 @@
   --text: #e7f5ee; --dim: #88a89a;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Barlow', system-ui, sans-serif; background: var(--bg); color: var(--text); }
+body { font-family: 'Barlow', system-ui, sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
-.layout { display: grid; grid-template-columns: 360px 1fr; height: 100vh; }
+/* ── Topbar ───────────────────────────────────────── */
+.topbar {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+  z-index: 1001;
+}
+.topbar__brand { display: flex; align-items: center; gap: 10px; }
+.topbar__code {
+  background: var(--amber);
+  color: #000;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: .08em;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+.topbar__name { font-weight: 600; font-size: 16px; }
+.topbar__nav  { display: flex; gap: 20px; align-items: center; }
+.topbar__link {
+  color: var(--dim);
+  text-decoration: none;
+  font-size: 13px;
+  transition: color .15s;
+}
+.topbar__link:hover { color: var(--text); }
+.topbar__link--logout { color: var(--red); }
+.topbar__link--logout:hover { color: #ff9d93; }
+
+.layout { display: grid; grid-template-columns: 360px 1fr; flex: 1; min-height: 0; }
 .side { display: flex; flex-direction: column; border-right: 1px solid var(--line); background: var(--panel); min-height: 0; }
 .side__head { padding: 16px 18px; border-bottom: 1px solid var(--line); }
 .side__head strong { font-size: 18px; display: block; }
@@ -40,10 +74,8 @@ body { font-family: 'Barlow', system-ui, sans-serif; background: var(--bg); colo
 .depart-tag { color: var(--green); font-size: 12px; }
 .empty { color: var(--dim); text-align: center; padding: 30px 10px; font-size: 14px; }
 
-.side__foot { display: flex; justify-content: space-between; padding: 12px 18px; border-top: 1px solid var(--line); }
-.side__foot a { color: var(--green); text-decoration: none; font-size: 13px; font-weight: 600; }
 
-#map { height: 100vh; background: #0a1410; }
+#map { height: 100%; background: #0a1410; }
 
 /* Dark-ish tiles */
 .leaflet-tile { filter: brightness(0.7) invert(0) contrast(1.05) hue-rotate(160deg) saturate(0.7); }
