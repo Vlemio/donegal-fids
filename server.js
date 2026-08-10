@@ -57,15 +57,46 @@ function writeConfig(cfg) {
 
 // HTTP Basic Auth — protects all routes except GET /api/flights (public for the airport website).
 // Set FIDS_PASSWORD env var to enable; if not set the server is open (local/dev mode).
+//
+// Brute-force guard: 5 failed attempts from the same IP → 15-minute lockout.
+// Counter resets on any successful login. Stored in memory (resets on server restart —
+// acceptable; a restarted server is a fresh process and old attack sessions are gone).
+const _failMap = new Map(); // ip → { count, until }
+const AUTH_MAX_FAILS  = 5;
+const AUTH_LOCKOUT_MS = 15 * 60 * 1000;
+
 function basicAuth(req, res, next) {
   const pw = process.env.FIDS_PASSWORD;
   if (!pw) return next();
+
+  const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+  const record = _failMap.get(ip) || { count: 0, until: 0 };
+
+  // Locked out?
+  if (record.until > Date.now()) {
+    const secsLeft = Math.ceil((record.until - Date.now()) / 1000);
+    res.set('Retry-After', String(secsLeft));
+    return res.status(429).send(`Too many failed attempts. Try again in ${Math.ceil(secsLeft / 60)} min.`);
+  }
+
   const auth = req.headers.authorization || '';
   if (auth.startsWith('Basic ')) {
     const decoded = Buffer.from(auth.slice(6), 'base64').toString();
     const pass = decoded.slice(decoded.indexOf(':') + 1);
-    if (pass === pw) return next();
+    if (pass === pw) {
+      _failMap.delete(ip); // reset on success
+      return next();
+    }
   }
+
+  // Wrong credentials — increment counter
+  record.count += 1;
+  if (record.count >= AUTH_MAX_FAILS) {
+    record.until = Date.now() + AUTH_LOCKOUT_MS;
+    console.warn(`[auth] IP ${ip} locked out after ${record.count} failed attempts`);
+  }
+  _failMap.set(ip, record);
+
   res.set('WWW-Authenticate', 'Basic realm="Donegal Airport FIDS"');
   res.status(401).send('Donegal Airport FIDS — authentication required');
 }
@@ -208,6 +239,19 @@ app.post('/api/pull', async (req, res) => {
 app.get('/admin',    (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/operator', (req, res) => res.sendFile(path.join(__dirname, 'public', 'operator.html')));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+
+// Logout: return 401 so the browser discards cached Basic Auth credentials,
+// then redirect to root so the login prompt appears immediately.
+app.get('/api/logout', (req, res) => {
+  res.set('WWW-Authenticate', 'Basic realm="Donegal Airport FIDS"');
+  res.status(401).send(`
+    <!doctype html><meta charset="utf-8">
+    <title>Logged out</title>
+    <style>body{font-family:sans-serif;background:#0b1912;color:#cce8d6;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}</style>
+    <p>Logged out. <a href="/" style="color:#00e87c">Sign in again</a></p>
+    <script>setTimeout(()=>location.href='/',1500)</script>
+  `);
+});
 
 // ---- Background polling (smart event-driven schedule) -----------------------
 // Instead of a blind fixed interval, AeroDataBox is called only at meaningful
