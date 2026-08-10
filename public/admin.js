@@ -27,7 +27,6 @@ function buildStatusSelect(f) {
   const isManual = locked && MANUAL_STATUSES.includes(f.status);
   const wrapSlug = isManual ? slug(f.status) : 'auto';
 
-  // When status is auto-managed and not one of our 7, show what the engine has as a hint
   const hint = !isManual && f.status && !['Scheduled'].includes(f.status)
     ? `<span class="auto-hint">${f.status}</span>` : '';
 
@@ -81,7 +80,13 @@ function renderFlights(listId, flights) {
         await put(id, { locks: { status: false } });
         wrap.dataset.slug = 'auto';
       } else {
-        await put(id, { status: val, locks: { status: true } });
+        const body = { status: val, locks: { status: true } };
+        if (val === 'Cancelled' || val === 'Diverted') {
+          body.estTime = null;
+          const card = sel.closest('.fcard');
+          if (card) { const inp = card.querySelector('.js-est'); if (inp) inp.value = ''; }
+        }
+        await put(id, body);
         wrap.dataset.slug = slug(val);
       }
       setTimeout(loadFlights, 400);
@@ -106,36 +111,84 @@ async function put(id, body) {
 
 async function loadSchedule() {
   const { recurring = [] } = await fetch('/api/schedule', { cache: 'no-store' }).then(r => r.json());
-  recurring.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
   const emerald  = recurring.filter(s => (s.flightNo || '').startsWith('EI'));
   const loganair = recurring.filter(s => (s.flightNo || '').startsWith('LM'));
   const other    = recurring.filter(s => !s.flightNo?.startsWith('EI') && !s.flightNo?.startsWith('LM'));
-  renderSched('schedEmerald',  [...emerald, ...other]);
-  renderSched('schedLoganair', loganair);
+
+  $('schedContent').innerHTML =
+    renderAirlineSection('🟢 Emerald Airlines', 'EI', [...emerald, ...other]) +
+    renderAirlineSection('🔵 Loganair',          'LM', loganair);
 }
 
-function renderSched(listId, entries) {
-  const c = $(listId);
-  if (!entries.length) { c.innerHTML = '<p class="empty">No flights.</p>'; return; }
-  c.innerHTML = entries.map(s => {
-    const days = (s.days || []).map(d => DAY_LABELS[d]).join(' · ');
-    const key  = s._id || `${s.type}|${s.flightNo}`;
-    const dir  = s.type === 'arrival' ? '↓' : '↑';
-    const dirClass = s.type === 'arrival' ? 'arr' : 'dep';
-    return `<div class="scard">
-      <div class="scard__dir scard__dir--${dirClass}">${dir}</div>
-      <div class="scard__info">
-        <div class="scard__no">${s.flightNo} <span class="scard__time">${s.time}</span></div>
-        <div class="scard__days">${days || '—'}</div>
-      </div>
-      <div class="scard__actions">
-        <button class="btn btn--sm" data-sedit="${key}">Edit</button>
-        <button class="btn btn--sm btn--danger" data-sdel="${key}">✕</button>
-      </div>
-    </div>`;
-  }).join('');
-  c.querySelectorAll('[data-sedit]').forEach(b => b.addEventListener('click', () => openModal(b.dataset.sedit)));
-  c.querySelectorAll('[data-sdel]').forEach(b => b.addEventListener('click', () => delSched(b.dataset.sdel)));
+function getDayLabel(days) {
+  const s = [...days].sort((a, b) => a - b);
+  if (s.length === 7) return 'Every day';
+  if (s.length === 5 && !s.includes(0) && !s.includes(6)) return 'Mon – Fri';
+  if (s.length === 2 && s.includes(0) && s.includes(6)) return 'Weekends';
+  return s.map(d => DAY_LABELS[d]).join(' · ');
+}
+
+function schedCard(entry) {
+  const key = entry._id || `${entry.type}|${entry.flightNo}`;
+  const dir = entry.type === 'arrival' ? '↓' : '↑';
+  const dirClass = entry.type === 'arrival' ? 'arr' : 'dep';
+  return `<div class="scard">
+    <div class="scard__dir scard__dir--${dirClass}">${dir}</div>
+    <div class="scard__info">
+      <div class="scard__no">${entry.flightNo} <span class="scard__time">${entry.time}</span></div>
+      ${entry.city ? `<div class="scard__days">${entry.city}</div>` : ''}
+    </div>
+    <div class="scard__actions">
+      <button class="btn btn--sm js-sedit" data-key="${key}">Edit</button>
+      <button class="btn btn--sm btn--danger js-sdel" data-key="${key}">✕</button>
+    </div>
+  </div>`;
+}
+
+function renderAirlineSection(title, code, entries) {
+  let bodyHTML = '';
+
+  if (!entries.length) {
+    bodyHTML = '<p class="empty">No flights.</p>';
+  } else {
+    const patternKey = e => (e.days || []).slice().sort((a, b) => a - b).join(',');
+    const patterns = new Set(entries.map(patternKey));
+
+    if (patterns.size === 1) {
+      // All entries share the same day pattern — one group
+      const label = getDayLabel(entries[0].days || []);
+      const sorted = [...entries].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+      bodyHTML = `<div class="day-group">
+        <div class="day-group__label">${label}</div>
+        ${sorted.map(schedCard).join('')}
+      </div>`;
+    } else {
+      // Multiple patterns — group by individual day
+      const byDay = {};
+      for (const e of entries) {
+        for (const d of (e.days || [])) {
+          if (!byDay[d]) byDay[d] = [];
+          if (!byDay[d].some(x => x._id && x._id === e._id)) byDay[d].push(e);
+        }
+      }
+      for (const d of [0, 1, 2, 3, 4, 5, 6]) {
+        if (!byDay[d]?.length) continue;
+        const sorted = [...byDay[d]].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+        bodyHTML += `<div class="day-group">
+          <div class="day-group__label">${DAY_LABELS[d]}</div>
+          ${sorted.map(schedCard).join('')}
+        </div>`;
+      }
+    }
+  }
+
+  return `<div class="airline-section">
+    <div class="airline-section__head">
+      <span class="airline-section__name">${title}</span>
+      <button class="btn btn--sm btn--outline js-add-sched" data-code="${code}">+ Add flight</button>
+    </div>
+    <div class="airline-section__body">${bodyHTML}</div>
+  </div>`;
 }
 
 async function delSched(key) {
@@ -146,20 +199,25 @@ async function delSched(key) {
 
 // ── Modal ─────────────────────────────────────────────────────────────────
 
-async function openModal(key) {
+async function openModal(key, defaults = {}) {
   const { recurring = [] } = await fetch('/api/schedule', { cache: 'no-store' }).then(r => r.json());
-  let s = { type: 'departure', airline: 'Aer Lingus', airlineCode: 'EI', days: [1,2,3,4,5] };
+  let s = {
+    type: 'departure',
+    airline: defaults.code === 'LM' ? 'Loganair' : 'Aer Lingus',
+    airlineCode: defaults.code || 'EI',
+    days: [1, 2, 3, 4, 5]
+  };
   if (key) s = recurring.find(x => x._id === key) || s;
   $('modalTitle').textContent = key ? 'Edit scheduled flight' : 'Add scheduled flight';
-  $('f_id').value        = s._id || '';
-  $('f_type').value      = s.type || 'departure';
-  $('f_time').value      = s.time || '';
-  $('f_flightNo').value  = s.flightNo || '';
-  $('f_city').value      = s.city || '';
-  $('f_airline').value   = s.airline || '';
+  $('f_id').value          = s._id || '';
+  $('f_type').value        = s.type || 'departure';
+  $('f_time').value        = s.time || '';
+  $('f_flightNo').value    = s.flightNo || '';
+  $('f_city').value        = s.city || '';
+  $('f_airline').value     = s.airline || '';
   $('f_airlineCode').value = s.airlineCode || '';
-  $('f_codeshare').value = (s.codeshare || []).join(', ');
-  $('f_callsign').value  = s.callsign || '';
+  $('f_codeshare').value   = (s.codeshare || []).join(', ');
+  $('f_callsign').value    = s.callsign || '';
   buildDays(s.days || []);
   $('modal').classList.add('is-open');
 }
@@ -211,9 +269,17 @@ $('schedToggle').addEventListener('click', () => {
   if (!p.hidden) loadSchedule();
 });
 
-$('addSchedBtn').addEventListener('click', () => openModal(''));
+// Event delegation for dynamically rendered schedule buttons
+$('schedContent').addEventListener('click', e => {
+  const editBtn = e.target.closest('.js-sedit');
+  const delBtn  = e.target.closest('.js-sdel');
+  const addBtn  = e.target.closest('.js-add-sched');
+  if (editBtn) openModal(editBtn.dataset.key);
+  if (delBtn)  delSched(delBtn.dataset.key);
+  if (addBtn)  openModal('', { code: addBtn.dataset.code });
+});
 
-// Modal close — three ways: X button, Cancel button, backdrop click, Escape key
+// Modal close — X, Cancel, backdrop click, Escape
 document.querySelectorAll('#modalClose, #modalCancel').forEach(el => el.addEventListener('click', closeModal));
 $('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });

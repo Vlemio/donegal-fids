@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>FIDS Control · Donegal Airport</title>
-  <link rel="stylesheet" href="admin.css?v=3">
+  <link rel="stylesheet" href="admin.css?v=4">
 </head>
 <body>
 
@@ -47,19 +47,7 @@
         <span id="schedArrow">▼</span>
       </button>
       <div id="schedPanel" hidden>
-        <div class="sched-grid">
-          <div class="board-col">
-            <div class="col-label">🟢 Emerald Airlines</div>
-            <div id="schedEmerald" class="board-list"></div>
-          </div>
-          <div class="board-col">
-            <div class="col-label">🔵 Loganair</div>
-            <div id="schedLoganair" class="board-list"></div>
-          </div>
-        </div>
-        <div class="sched-footer">
-          <button class="btn btn--outline" id="addSchedBtn">+ Add flight to timetable</button>
-        </div>
+        <div id="schedContent" class="sched-content"></div>
       </div>
     </section>
 
@@ -121,6 +109,6 @@
     </div>
   </div>
 
-  <script src="admin.js?v=3"></script>
+  <script src="admin.js?v=4"></script>
 </body>
 </html>
