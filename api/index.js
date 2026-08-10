@@ -13,6 +13,7 @@ const openskyAdapter     = require('../src/openskyAdapter');
 const tracker      = require('../src/tracker');
 const websiteSync  = require('../src/websiteSync');
 const kv           = require('../src/kvStore');
+const { issueToken, verifyToken, timingSafeStringEqual } = require('../src/authToken');
 
 const app = express();
 app.use(express.json());
@@ -43,10 +44,33 @@ function parseCookies(header) {
 }
 
 // Brute-force guard on the login form: 5 wrong passwords from same IP → 15-min lockout.
-// In-memory — acceptable for serverless (resets on cold start; cold starts clear old attacks).
-const _loginFails  = new Map();
+// Backed by KV when available (see src/kvStore.js) so the counter is shared
+// across every serverless instance — an in-memory-only Map resets per cold
+// start AND is per-instance, so a parallel/distributed attack can dodge it
+// entirely by landing on several warm instances at once. Falls back to this
+// in-memory Map when KV isn't configured (local dev without a KV_URL).
+const _loginFailsMem = new Map();
 const LOGIN_MAX    = 5;
-const LOGIN_LOCK   = 15 * 60 * 1000;
+const LOGIN_LOCK_S  = 15 * 60;
+
+async function getLoginFailRecord(ip) {
+  const fromKv = await kv.getLoginFail(ip);
+  return fromKv || _loginFailsMem.get(ip) || { count: 0, until: 0 };
+}
+
+async function recordLoginFail(ip, record) {
+  if (kv.HAS_KV) {
+    const ttl = record.until > Date.now() ? Math.ceil((record.until - Date.now()) / 1000) : LOGIN_LOCK_S;
+    await kv.setLoginFail(ip, record, ttl);
+  } else {
+    _loginFailsMem.set(ip, record);
+  }
+}
+
+async function clearLoginFailRecord(ip) {
+  if (kv.HAS_KV) await kv.clearLoginFail(ip);
+  else _loginFailsMem.delete(ip);
+}
 
 function getIp(req) {
   return (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
@@ -65,6 +89,11 @@ const PUBLIC_ROUTES = [
 
 // Auth wall — runs before every API route.
 // Returns 401 JSON (not a redirect) so admin.js fetch calls can detect it cleanly.
+//
+// The cookie holds a signed, expiring session token (see src/authToken.js),
+// never the password itself — a leaked cookie only grants a time-boxed
+// session, not the real credential, and rotating FIDS_PASSWORD invalidates
+// every outstanding token immediately.
 app.use((req, res, next) => {
   const pw = process.env.FIDS_PASSWORD;
   if (!pw) return next(); // dev mode — no password set, open access
@@ -72,7 +101,7 @@ app.use((req, res, next) => {
   if (PUBLIC_ROUTES.some(r => r.m === req.method && r.p === req.path)) return next();
 
   const cookies = parseCookies(req.headers.cookie);
-  if (cookies.fids_auth === pw) return next();
+  if (verifyToken(cookies.fids_auth, pw)) return next();
 
   return res.status(401).json({ error: 'Authentication required' });
 });
@@ -330,7 +359,7 @@ app.get('/api/tick', async (req, res) => {
   const secret = process.env.TICK_SECRET;
   if (secret) {
     const auth = req.headers.authorization || '';
-    if (auth !== `Bearer ${secret}`) {
+    if (!timingSafeStringEqual(auth, `Bearer ${secret}`)) {
       return res.status(401).json({ ok: false, error: 'Unauthorized' });
     }
   }
@@ -614,30 +643,30 @@ app.post('/api/flights/:id/restore', async (req, res) => {
 });
 
 // Cookie-based auth — login form posts here
-app.post('/api/auth', (req, res) => {
+app.post('/api/auth', async (req, res) => {
   const pw = process.env.FIDS_PASSWORD;
   const { username, password } = req.body || {};
   const ip = getIp(req);
-  const record = _loginFails.get(ip) || { count: 0, until: 0 };
+  const record = await getLoginFailRecord(ip);
 
   if (record.until > Date.now()) {
     const mins = Math.ceil((record.until - Date.now()) / 60000);
     return res.redirect(302, `/login.html?error=locked&mins=${mins}`);
   }
 
-  if (pw && username === 'donegal' && password === pw) {
-    _loginFails.delete(ip);
+  if (pw && username === 'donegal' && timingSafeStringEqual(password, pw)) {
+    await clearLoginFailRecord(ip);
     res.setHeader('Set-Cookie',
-      `fids_auth=${pw}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=604800`);
+      `fids_auth=${issueToken(pw)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=604800`);
     return res.redirect(302, '/');
   }
 
   record.count += 1;
   if (record.count >= LOGIN_MAX) {
-    record.until = Date.now() + LOGIN_LOCK;
+    record.until = Date.now() + LOGIN_LOCK_S * 1000;
     console.warn(`[auth] IP ${ip} locked out after ${record.count} failed login attempts`);
   }
-  _loginFails.set(ip, record);
+  await recordLoginFail(ip, record);
   return res.redirect(302, '/login.html?error=1');
 });
 

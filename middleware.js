@@ -4,6 +4,15 @@
 //
 // Set FIDS_PASSWORD in Vercel environment variables to enable auth.
 // Leave it unset and the FIDS is open (useful during local testing).
+//
+// The cookie holds a signed, expiring session token (HMAC-SHA256 over an
+// expiry timestamp, keyed by FIDS_PASSWORD) — never the password itself —
+// so a leaked cookie only grants a time-boxed session, not the real
+// credential, and rotating the password invalidates every outstanding
+// token immediately. Tokens are issued in api/index.js's Node runtime
+// (src/authToken.js, Node crypto); this Edge runtime has no `crypto`
+// module, so verification here re-implements the same HMAC-SHA256 check
+// with the Web Crypto API — same algorithm, same output.
 
 function parseCookies(header) {
   const out = {};
@@ -15,7 +24,35 @@ function parseCookies(header) {
   return out;
 }
 
-export default function middleware(request) {
+function toHex(buf) {
+  return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function timingSafeHexEqual(a, b) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+async function verifyToken(token, secret) {
+  if (!token || !secret) return false;
+  const dot = token.indexOf('.');
+  if (dot < 0) return false;
+  const expiryStr = token.slice(0, dot);
+  const sig = token.slice(dot + 1);
+  const expiry = Number(expiryStr);
+  if (!Number.isFinite(expiry) || Date.now() > expiry) return false;
+
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
+  );
+  const sigBuf = await crypto.subtle.sign('HMAC', key, enc.encode(expiryStr));
+  return timingSafeHexEqual(toHex(sigBuf), sig);
+}
+
+export default async function middleware(request) {
   const pw = process.env.FIDS_PASSWORD;
   if (!pw) return; // no password configured — open
 
@@ -35,7 +72,7 @@ export default function middleware(request) {
 
   // Check session cookie
   const cookies = parseCookies(request.headers.get('cookie'));
-  if (cookies['fids_auth'] === pw) return; // authenticated
+  if (await verifyToken(cookies['fids_auth'], pw)) return; // authenticated
 
   return Response.redirect(new URL('/login.html', request.url).href, 302);
 }

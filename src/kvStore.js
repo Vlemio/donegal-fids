@@ -99,9 +99,32 @@ async function setPollState(state) {
   await getKv().set('pollState', state, { ex: 3600 }); // 1h TTL
 }
 
+// Login brute-force lockout, keyed per IP. Backed by KV (shared across every
+// serverless instance) instead of an in-memory Map — an in-memory counter
+// resets on cold start AND is per-instance, so a distributed/parallel login
+// attack can land on several warm instances at once and never trip the
+// 5-attempts lockout. KV makes the counter global regardless of which
+// instance handles which request. Falls back to null when KV isn't
+// configured (local dev) — the caller keeps its own in-memory fallback.
+async function getLoginFail(ip) {
+  if (!HAS_KV) return null;
+  return getKv().get(`loginfail:${ip}`);
+}
+
+async function setLoginFail(ip, record, ttlSeconds) {
+  if (!HAS_KV) return;
+  await getKv().set(`loginfail:${ip}`, record, { ex: ttlSeconds });
+}
+
+async function clearLoginFail(ip) {
+  if (!HAS_KV) return;
+  await getKv().del(`loginfail:${ip}`);
+}
+
 module.exports = {
   loadState, saveFlights, saveSchedule,
   getLiveData, setLiveData,
   getPollState, setPollState,
+  getLoginFail, setLoginFail, clearLoginFail,
   TMP_DIR, HAS_KV,
 };
