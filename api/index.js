@@ -365,42 +365,58 @@ app.get('/api/tick', async (req, res) => {
   }
 
   const t0 = Date.now();
+
+  // Concurrency guard: cron-job.org fires this every 2 min regardless of
+  // whether the previous run finished. Two overlapping runs each mutate
+  // their own /tmp copy of the same starting KV snapshot independently,
+  // and whichever calls kv.saveFlights() last silently overwrites the
+  // other's work — a slow run (GitHub/FR24/OpenSky hiccup) was enough to
+  // make an already-cleaned-up flight list flip back to stale data. Bail
+  // out immediately if another tick is already in flight instead of racing.
+  if (!(await kv.acquireTickLock())) {
+    return res.json({ ok: true, skipped: 'tick already in progress', ms: Date.now() - t0 });
+  }
+
   const results = { engine: false, fr24: null, poll: null, track: null, sync: null };
 
   try {
-    engineTick();
-    results.engine = true;
-  } catch (err) { results.engineErr = err.message; }
+    try {
+      engineTick();
+      results.engine = true;
+    } catch (err) { results.engineErr = err.message; }
 
-  try {
-    await fr24Tick();
-    results.fr24 = 'ok';
-  } catch (err) { results.fr24 = `err: ${err.message}`; }
+    try {
+      await fr24Tick();
+      results.fr24 = 'ok';
+    } catch (err) { results.fr24 = `err: ${err.message}`; }
 
-  try {
-    const p = await pollOnce();
-    results.poll = p.message;
-  } catch (err) { results.pollErr = err.message; }
+    try {
+      const p = await pollOnce();
+      results.poll = p.message;
+    } catch (err) { results.pollErr = err.message; }
 
-  try {
-    await trackTick();
-    results.track = liveData.message;
-  } catch (err) { results.track = `err: ${err.message}`; }
+    try {
+      await trackTick();
+      results.track = liveData.message;
+    } catch (err) { results.track = `err: ${err.message}`; }
 
-  try {
-    const cfg = readConfig();
-    const syncResult = await websiteSync.syncTick(cfg);
-    lastSync = { at: new Date().toISOString(), ...syncResult };
-    results.sync = syncResult.message;
-  } catch (err) { results.sync = `err: ${err.message}`; }
+    try {
+      const cfg = readConfig();
+      const syncResult = await websiteSync.syncTick(cfg);
+      lastSync = { at: new Date().toISOString(), ...syncResult };
+      results.sync = syncResult.message;
+    } catch (err) { results.sync = `err: ${err.message}`; }
 
-  // Persist updated flights and live data to KV
-  try {
-    await Promise.all([
-      kv.saveFlights(),
-      kv.setLiveData(liveData),
-    ]);
-  } catch (err) { console.error('[kv] save after tick:', err.message); }
+    // Persist updated flights and live data to KV
+    try {
+      await Promise.all([
+        kv.saveFlights(),
+        kv.setLiveData(liveData),
+      ]);
+    } catch (err) { console.error('[kv] save after tick:', err.message); }
+  } finally {
+    await kv.releaseTickLock();
+  }
 
   res.json({ ok: true, ms: Date.now() - t0, ...results });
 });

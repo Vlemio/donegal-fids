@@ -121,10 +121,33 @@ async function clearLoginFail(ip) {
   await getKv().del(`loginfail:${ip}`);
 }
 
+// Tick concurrency guard. /api/tick has no queue — cron-job.org fires it
+// every 2 min regardless of whether the previous run finished, and each run
+// does several sequential external API calls (GitHub, FR24, OpenSky) that
+// can occasionally take much longer than usual. Two overlapping runs each
+// load the same KV snapshot into their own /tmp, mutate it independently,
+// and whichever finishes last silently overwrites the other's work — so a
+// slow run can make a healthy, already-suppressed flight list flip back to
+// stale data. SET NX with a short TTL makes only one tick body execute at a
+// time; the loser returns immediately instead of racing to save.
+// No-ops (always "acquired") when KV isn't configured — local kiosk mode
+// runs ticks sequentially in one process, so there's nothing to race.
+async function acquireTickLock() {
+  if (!HAS_KV) return true;
+  const res = await getKv().set('tick-lock', Date.now(), { nx: true, ex: 55 });
+  return res !== null;
+}
+
+async function releaseTickLock() {
+  if (!HAS_KV) return;
+  await getKv().del('tick-lock');
+}
+
 module.exports = {
   loadState, saveFlights, saveSchedule,
   getLiveData, setLiveData,
   getPollState, setPollState,
   getLoginFail, setLoginFail, clearLoginFail,
+  acquireTickLock, releaseTickLock,
   TMP_DIR, HAS_KV,
 };
