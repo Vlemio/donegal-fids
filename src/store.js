@@ -116,9 +116,12 @@ function mergeApi(apiFlights) {
     const existing = byId.get(flight.id);
 
     if (!existing) {
+      console.log(`[debug-merge] NEW entry created (no existing match): id=${flight.id} status=${flight.status} schedDate=${flight.schedDate}`);
       byId.set(flight.id, flight);
       continue;
     }
+
+    console.log(`[debug-merge] id=${flight.id} existing.schedDate=${existing.schedDate} today=${today} existing.status=${existing.status} incoming.status=${flight.status} willSkip=${!!(existing.schedDate && existing.schedDate > today)}`);
 
     // Flight IDs repeat every day (e.g. "ARR-EI3402" is the same ID today and
     // tomorrow), but the live API only ever reports on TODAY's real-world
