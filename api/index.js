@@ -389,6 +389,9 @@ app.get('/api/tick', async (req, res) => {
 
   try {
     const cfg = readConfig();
+    // DEBUG: temporary trace to diagnose FIDS-vs-website flight-count mismatch.
+    const preSync = store.read();
+    console.log(`[debug-tick] pre-sync store: ${preSync.flights.length} total, ${preSync.flights.filter(f => !f.suppressed).length} non-suppressed`);
     const syncResult = await websiteSync.syncTick(cfg);
     lastSync = { at: new Date().toISOString(), ...syncResult };
     results.sync = syncResult.message;
@@ -396,6 +399,9 @@ app.get('/api/tick', async (req, res) => {
 
   // Persist updated flights and live data to KV
   try {
+    // DEBUG: temporary trace — what's actually about to be written to KV.
+    const preSave = store.read();
+    console.log(`[debug-tick] pre-kv-save store: ${preSave.flights.length} total, ${preSave.flights.filter(f => !f.suppressed).length} non-suppressed`);
     await Promise.all([
       kv.saveFlights(),
       kv.setLiveData(liveData),
