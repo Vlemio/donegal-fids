@@ -131,8 +131,6 @@ function ensureTodaysFlights(data, schedule, parts, tz) {
   const hasActiveToday = data.flights.some(
     (f) => !f.suppressed && (!f.schedDate || f.schedDate === parts.date)
   );
-  console.log(`[debug-ensure] today=${parts.date} hasActiveToday=${hasActiveToday} | ` +
-    data.flights.map(f => `${f.id}:sd=${f.schedDate}:sup=${f.suppressed}:st=${f.status}`).join(', '));
   if (!hasActiveToday) {
     const tomorrow = nextDateParts(parts.date, tz || 'Europe/Dublin');
     _ensureFlightsForDate(data, schedule, tomorrow.date, tomorrow.dow);
