@@ -17,6 +17,19 @@ const STATUSES = [
   'Cancelled', 'Diverted'
 ];
 
+// Today's YYYY-MM-DD in the airport's timezone. Self-contained (no import
+// from scheduler.js, which itself requires this module) — used by mergeApi
+// to tell a live flight apart from a same-numbered one pre-populated for
+// tomorrow, since flight IDs (e.g. "ARR-EI3402") repeat every day and don't
+// carry a date on their own.
+function todayDateStr(tz = 'Europe/Dublin') {
+  const fmt = new Intl.DateTimeFormat('en-GB', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+  });
+  const p = Object.fromEntries(fmt.formatToParts(new Date()).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
 function read() {
   try {
     const raw = fs.readFileSync(getDataFile(), 'utf8');
@@ -96,6 +109,7 @@ function apiDelayMins(sched, est) {
 function mergeApi(apiFlights) {
   const data = read();
   const byId = new Map(data.flights.map((f) => [f.id, f]));
+  const today = todayDateStr();
 
   for (const incoming of apiFlights) {
     const flight = normalise({ ...incoming, source: 'api' });
@@ -105,6 +119,17 @@ function mergeApi(apiFlights) {
       byId.set(flight.id, flight);
       continue;
     }
+
+    // Flight IDs repeat every day (e.g. "ARR-EI3402" is the same ID today and
+    // tomorrow), but the live API only ever reports on TODAY's real-world
+    // operations. Once today's flights are done, ensureTodaysFlights
+    // pre-populates tomorrow's board under the same ID (schedDate = tomorrow,
+    // status reset to Scheduled) so the display never goes empty. Without this
+    // guard, the API's still-arriving report of today's now-completed flight
+    // (e.g. a late "Landed" from AeroDataBox) would land on that lookup by ID
+    // alone and overwrite tomorrow's fresh placeholder with today's stale
+    // status — flipping the public board back and forth between the two.
+    if (existing.schedDate && existing.schedDate > today) continue;
 
     // Update only unlocked, API-managed fields on the existing record.
     const locks = existing.locks || {};
