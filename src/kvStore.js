@@ -56,13 +56,17 @@ async function loadState() {
 }
 
 // Write the current /tmp/flights.json back to KV.
+// Returns the lastUpdated timestamp written (for diagnostic use by /api/tick).
 async function saveFlights() {
-  if (!HAS_KV) return;
+  if (!HAS_KV) return null;
   const db = getKv();
   const p = path.join(TMP_DIR, 'flights.json');
-  if (fs.existsSync(p)) {
-    await db.set('flights', JSON.parse(fs.readFileSync(p, 'utf8')));
-  }
+  if (!fs.existsSync(p)) return null;
+  const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+  await db.set('flights', data);
+  // Read back immediately to confirm the write reached the store.
+  const verify = await db.get('flights');
+  return { wrote: data.lastUpdated, readback: verify?.lastUpdated };
 }
 
 // Write the current /tmp/schedule.json back to KV.

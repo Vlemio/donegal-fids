@@ -425,11 +425,11 @@ app.get('/api/tick', async (req, res) => {
 
     // Persist updated flights and live data to KV
     try {
-      await Promise.all([
+      const [kvResult] = await Promise.all([
         kv.saveFlights(),
         kv.setLiveData(liveData),
       ]);
-      results.kv = 'saved';
+      results.kv = kvResult || 'saved-no-file';
     } catch (err) {
       results.kv = `err: ${err.message}`;
       console.error('[kv] save after tick:', err.message);
