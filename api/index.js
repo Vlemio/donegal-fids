@@ -237,7 +237,9 @@ async function pollOnce(forceReason) {
 }
 
 // Returns true when any flight is in a time-critical window that warrants 1-min FR24 polling.
-// Arrivals: within 10 min of ETA — to catch Landed as soon as possible.
+// Arrivals: within 10 min of API-estimated ETA, OR within 15 min of scheduled time when
+//   estTime is unknown — the wider window covers early arrivals where FR24 hasn't yet
+//   populated estTime and the scheduled time is the only reference we have.
 // Departures: within ±30 min of estimated departure — to catch Departed quickly.
 function isInFastPollWindow(data, cfg) {
   const tz  = (cfg.display && cfg.display.timezone) || 'Europe/Dublin';
@@ -246,8 +248,14 @@ function isInFastPollWindow(data, cfg) {
     if (f.suppressed) continue;
     if (['Landed', 'Departed', 'Cancelled', 'Diverted'].includes(f.status)) continue;
     if (f.type === 'arrival') {
-      const etaMin = _hhmToMins(f.estTime) ?? _hhmToMins(f.time);
-      if (etaMin !== null && now >= etaMin - 10) return true;
+      const estMin  = _hhmToMins(f.estTime);
+      const schedMin = _hhmToMins(f.time);
+      // When we have an API-estimated ETA, use the tighter 10-min window.
+      // When estTime is unknown, fall back to scheduled time with a wider 15-min window
+      // so early-arriving flights (which land before estTime is set) aren't missed.
+      const etaMin  = estMin !== null ? estMin : schedMin;
+      const margin  = estMin !== null ? 10 : 15;
+      if (etaMin !== null && now >= etaMin - margin) return true;
     } else {
       const depMin = _hhmToMins(f.estTime) ?? _hhmToMins(f.time);
       if (depMin !== null && Math.abs(now - depMin) <= 30) return true;
@@ -256,16 +264,24 @@ function isInFastPollWindow(data, cfg) {
   return false;
 }
 
-async function fr24Tick() {
+// Returns a string describing what was done (included in /api/tick response for diagnosis).
+// Previously returned void — callers would see "ok" even when the function returned early
+// without querying FR24 at all, which made stale-data bugs impossible to diagnose remotely.
+async function fr24Tick(force = false) {
   const cfg = readConfig();
-  if (!cfg.fr24 || !cfg.fr24.enabled || !cfg.fr24.apiKey) return;
+  if (!cfg.fr24 || !cfg.fr24.enabled || !cfg.fr24.apiKey) return 'skipped:no-cfg';
   const data = store.read();
-  if (!tracker.isActiveWindow(data, cfg)) return;
+  if (!tracker.isActiveWindow(data, cfg)) return 'skipped:inactive';
   // Fast-poll every minute when close to an arrival ETA or a departure time.
   // Otherwise run every 2 minutes (even UTC minutes only) to save credits.
-  if (!isInFastPollWindow(data, cfg) && Math.floor(Date.now() / 60000) % 2 !== 0) return;
+  // The `force` flag (passed when the admin triggers a manual tick) bypasses the
+  // even/odd throttle so the forced run actually queries FR24 instead of silently skipping.
+  if (!force && !isInFastPollWindow(data, cfg) && Math.floor(Date.now() / 60000) % 2 !== 0) {
+    return 'skipped:throttle';
+  }
   const flights = await fr24Adapter.fetchFlights(cfg);
   store.mergeApi(flights);
+  return `ok:${flights.length}`;
 }
 
 function engineTick() {
@@ -386,8 +402,8 @@ app.get('/api/tick', async (req, res) => {
     } catch (err) { results.engineErr = err.message; }
 
     try {
-      await fr24Tick();
-      results.fr24 = 'ok';
+      const force = req.query.force === '1';
+      results.fr24 = await fr24Tick(force);
     } catch (err) { results.fr24 = `err: ${err.message}`; }
 
     try {

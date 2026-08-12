@@ -10,7 +10,7 @@ const $ = id => document.getElementById(id);
 // Returns a dummy empty-JSON Response so callers with .then(r => r.json()) don't crash
 // while the redirect is already underway.
 async function apiFetch(url, opts) {
-  const res = await apiFetch(url, opts);
+  const res = await fetch(url, opts);
   if (res.status === 401) {
     location.href = '/login.html';
     return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } });
