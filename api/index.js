@@ -393,18 +393,33 @@ app.get('/api/tick', async (req, res) => {
     return res.json({ ok: true, skipped: 'tick already in progress', ms: Date.now() - t0 });
   }
 
-  const results = { engine: false, fr24: null, poll: null, track: null, sync: null };
+  // Diagnostic helper: reads the lastUpdated from whichever file DATA_DIR points at.
+  // Returns null if the file doesn't exist or can't be parsed.
+  function _tmpTs() {
+    try {
+      const p = require('path').join(process.env.DATA_DIR || '', 'flights.json');
+      return JSON.parse(require('fs').readFileSync(p, 'utf8')).lastUpdated || null;
+    } catch (_) { return null; }
+  }
+
+  const results = {
+    engine: false, fr24: null, poll: null, track: null, sync: null,
+    dataDir: process.env.DATA_DIR || '(not set)',
+  };
 
   try {
+    results.tmpBeforeEngine = _tmpTs();
     try {
       engineTick();
       results.engine = true;
     } catch (err) { results.engineErr = err.message; }
+    results.tmpAfterEngine = _tmpTs();
 
     try {
       const force = req.query.force === '1';
       results.fr24 = await fr24Tick(force);
     } catch (err) { results.fr24 = `err: ${err.message}`; }
+    results.tmpAfterFr24 = _tmpTs();
 
     try {
       const p = await pollOnce();
