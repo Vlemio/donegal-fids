@@ -131,6 +131,7 @@ function writeConfig(cfg) {
 // ---- In-memory state (persists across warm invocations, resets on cold start)
 // The tick also saves/loads this from KV so it survives container recycling.
 let liveData = { at: null, ok: null, message: 'No tracking data yet', aircraft: [], tracked: [], possible: [] };
+let lastTickAt = null; // heartbeat: last completed /api/tick run, not last data change
 let lastPoll = { at: null, ok: null, message: 'Polling not started' };
 let lastSync = { at: null, ok: null, message: 'Website sync not started' };
 let openskyBackoffUntil   = 0;
@@ -394,6 +395,7 @@ app.get('/api/tick', async (req, res) => {
   }
 
   const results = { engine: false, fr24: null, poll: null, track: null, sync: null };
+  lastTickAt = new Date().toISOString();
 
   try {
     try {
@@ -428,6 +430,7 @@ app.get('/api/tick', async (req, res) => {
       const [kvResult] = await Promise.all([
         kv.saveFlights(),
         kv.setLiveData(liveData),
+        kv.setLastTick(lastTickAt),
       ]);
       results.kv = kvResult || 'saved-no-file';
     } catch (err) {
@@ -442,11 +445,19 @@ app.get('/api/tick', async (req, res) => {
 });
 
 // ---- Public board data -------------------------------------------------------
-app.get('/api/flights', (req, res) => {
+app.get('/api/flights', async (req, res) => {
   const cfg  = readConfig();
   const data = store.read();
+  // Prefer in-memory (warm) then fall back to KV (different container) —
+  // same pattern as /api/live's liveData below. lastUpdated only moves when
+  // a flight actually changes, so on a quiet day it can sit still for a long
+  // time even though the tick itself is running fine every 1-2 min; lastTick
+  // is the heartbeat callers should use to judge sync freshness.
+  let lastTick = lastTickAt;
+  if (!lastTick) lastTick = await kv.getLastTick();
   res.json({
     ...data,
+    lastTick: lastTick || null,
     flights: data.flights.filter(f => !f.suppressed),
     config: { display: cfg.display, airport: cfg.airport },
   });

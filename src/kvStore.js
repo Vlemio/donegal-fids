@@ -91,6 +91,22 @@ async function setLiveData(data) {
   await getKv().set('liveData', data, { ex: 300 });
 }
 
+// Last completed /api/tick run, regardless of whether it changed any flight
+// data — a heartbeat, not a data-mutation timestamp. Quiet days (nothing due
+// for hours) can go long stretches with no actual flight change, which would
+// otherwise leave flights.json's own lastUpdated looking frozen/stale even
+// though the sync is running fine every ~1-2 min. Expires after 5 min so a
+// dead cron job reads as unknown rather than showing a falsely-recent time.
+async function getLastTick() {
+  if (!HAS_KV) return null;
+  return getKv().get('lastTick');
+}
+
+async function setLastTick(iso) {
+  if (!HAS_KV) return;
+  await getKv().set('lastTick', iso, { ex: 300 });
+}
+
 // Ephemeral poll state (dedup map, backoff timers).
 // Lost on cold starts — acceptable; worst case is one extra API call.
 async function getPollState() {
@@ -153,5 +169,6 @@ module.exports = {
   getPollState, setPollState,
   getLoginFail, setLoginFail, clearLoginFail,
   acquireTickLock, releaseTickLock,
+  getLastTick, setLastTick,
   TMP_DIR, HAS_KV,
 };
