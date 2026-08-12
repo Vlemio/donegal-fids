@@ -429,7 +429,11 @@ app.get('/api/tick', async (req, res) => {
         kv.saveFlights(),
         kv.setLiveData(liveData),
       ]);
-    } catch (err) { console.error('[kv] save after tick:', err.message); }
+      results.kv = 'saved';
+    } catch (err) {
+      results.kv = `err: ${err.message}`;
+      console.error('[kv] save after tick:', err.message);
+    }
   } finally {
     await kv.releaseTickLock();
   }
