@@ -229,20 +229,12 @@ function autoAdvanceStatus(data, cfg, parts) {
       // Final / airline-set states: clock never touches these.
       if (f.status === 'Landed' || f.status === 'Diverted' || f.status === 'Cancelled') continue;
 
-      // "On Approach" is resolved by the ADS-B dropout handler in tracker.js,
-      // or by FR24 setting datetime_landed (via mergeApi). This clock path is a
-      // last-resort fallback only — it must never fire while a holding orbit or
-      // missed approach keeps the aircraft airborne well past the ETA.
-      // 45 min past ETA (or 60 min past scheduled if no ETA) gives enough margin
-      // for realistic holds without leaving a ghost "On Approach" forever.
-      if (f.status === 'On Approach') {
-        const etaMin = toMinutes(f.estTime);
-        const cutoff = etaMin !== null ? etaMin + 45 : t + 60;
-        if (!f.live && now >= cutoff) {
-          f.status = 'Landed';
-        }
-        continue;
-      }
+      // "On Approach" is resolved exclusively by FR24 datetime_landed (via mergeApi)
+      // or by a confirmed ADS-B landing in tracker.js. The clock never declares
+      // Landed — a holding orbit or missed approach can keep an aircraft airborne
+      // 40+ min past ETA, and a false Landed confuses passengers. Ghost cleanup
+      // (no FR24 confirmation after 2 h) is handled in cleanupOld instead.
+      if (f.status === 'On Approach') continue;
 
       // En Route / Departed means FR24 confirmed the aircraft left its origin via ADS-B.
       // Don't let the clock overwrite this with On Time / Delayed — the plane IS in the air.
@@ -298,6 +290,7 @@ function cleanupOld(data, cfg, parts) {
       (f.type === 'departure' && f.status === 'Departed'  && parts.minutes > t + depKeep) ||
       (f.type === 'arrival'   && f.status === 'Landed'    && parts.minutes > t + arrKeep) ||
       (f.type === 'arrival'   && f.status === 'Delayed'   && parts.minutes > t + 90)     ||
+      (f.type === 'arrival'   && f.status === 'On Approach' && parts.minutes > t + 120)  ||
       (f.status === 'Cancelled' && parts.minutes > t + 120) ||
       (f.status === 'Diverted'  && parts.minutes > t + 120);
 
