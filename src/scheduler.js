@@ -229,13 +229,16 @@ function autoAdvanceStatus(data, cfg, parts) {
       // Final / airline-set states: clock never touches these.
       if (f.status === 'Landed' || f.status === 'Diverted' || f.status === 'Cancelled') continue;
 
-      // "On Approach" is resolved by the ADS-B dropout handler in tracker.js.
-      // Fallback: 10+ min past scheduled arrival with no ADS-B → Landed.
-      // When there's no ADS-B signal (!f.live) also use the ETA as a Landed trigger —
-      // a delayed flight's t+10 fires too early if the aircraft is still in the air.
+      // "On Approach" is resolved by the ADS-B dropout handler in tracker.js,
+      // or by FR24 setting datetime_landed (via mergeApi). This clock path is a
+      // last-resort fallback only — it must never fire while a holding orbit or
+      // missed approach keeps the aircraft airborne well past the ETA.
+      // 45 min past ETA (or 60 min past scheduled if no ETA) gives enough margin
+      // for realistic holds without leaving a ghost "On Approach" forever.
       if (f.status === 'On Approach') {
         const etaMin = toMinutes(f.estTime);
-        if (now >= t + 10 || (!f.live && etaMin !== null && now >= etaMin + 5)) {
+        const cutoff = etaMin !== null ? etaMin + 45 : t + 60;
+        if (!f.live && now >= cutoff) {
           f.status = 'Landed';
         }
         continue;
