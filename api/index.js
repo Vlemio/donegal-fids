@@ -444,6 +444,86 @@ app.get('/api/tick', async (req, res) => {
   res.json({ ok: true, ms: Date.now() - t0, ...results });
 });
 
+// ---- FR24 debug — raw API response vs stored state --------------------------
+// Protected by TICK_SECRET. Shows exactly what FR24 returns for every flight
+// and how the adapter and mergeApi interpreted it — useful for diagnosing
+// missing estTime, wrong status, or flights not appearing on the board.
+app.get('/api/debug/fr24', async (req, res) => {
+  const secret = process.env.TICK_SECRET;
+  if (secret) {
+    const auth = req.headers.authorization || '';
+    if (!timingSafeStringEqual(auth, `Bearer ${secret}`)) {
+      return res.status(401).json({ ok: false, error: 'Unauthorized' });
+    }
+  }
+  try {
+    const cfg = readConfig();
+    if (!cfg.fr24 || !cfg.fr24.apiKey) return res.json({ ok: false, error: 'FR24 not configured' });
+
+    const home = (cfg.airport && cfg.airport.icao) || 'EIDL';
+    const tz   = (cfg.display && cfg.display.timezone) || 'Europe/Dublin';
+    const token = cfg.fr24.apiKey;
+    const today = new Date().toISOString().slice(0, 10);
+
+    // Raw FR24 response
+    const BASE = 'https://fr24api.flightradar24.com/api';
+    const qs = new URLSearchParams({
+      flight_datetime_from: `${today} 00:00:00`,
+      flight_datetime_to:   `${today} 23:59:59`,
+      airports: `both:${home}`,
+      limit: 20
+    }).toString();
+    const raw = await fetch(`${BASE}/flight-summary/light?${qs}`, {
+      headers: { Accept: 'application/json', 'Accept-Version': 'v1', Authorization: `Bearer ${token}` }
+    }).then(r => r.json());
+
+    // Current stored state keyed by flight ID
+    const stored = Object.fromEntries(
+      store.read().flights.map(f => [f.id, { status: f.status, estTime: f.estTime, schedDate: f.schedDate, suppressed: f.suppressed, locks: f.locks, live: !!f.live }])
+    );
+
+    // Per-entry breakdown
+    const entries = (Array.isArray(raw.data) ? raw.data : []).map(f => {
+      const flightNo = (f.flight || '').toUpperCase().replace(/\s+/g, '');
+      const isArrival = f.dest_icao === home || f.dest_icao_actual === home;
+      const id = `${isArrival ? 'ARR' : 'DEP'}-${flightNo}`;
+      let derivedStatus = null;
+      if (f.dest_icao_actual && f.dest_icao_actual !== f.dest_icao) derivedStatus = 'Diverted';
+      else if (f.datetime_landed)  derivedStatus = isArrival ? 'Landed'   : 'Departed';
+      else if (f.datetime_takeoff) derivedStatus = isArrival ? 'En Route' : 'Departed';
+      const fr24Confirmed = !!(f.datetime_takeoff || f.datetime_landed);
+      let estTime = null;
+      if (isArrival && f.datetime_takeoff && !f.datetime_landed) {
+        const ROUTE_MIN = { EIDW:41, EINN:55, EGPF:41, EGPH:60, EGAC:40, EGAA:45 };
+        const dur = ROUTE_MIN[f.orig_icao] || 60;
+        const ms  = new Date(f.datetime_takeoff.endsWith('Z') ? f.datetime_takeoff : f.datetime_takeoff + 'Z').getTime();
+        const p   = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour:'2-digit', minute:'2-digit', hour12:false }).formatToParts(new Date(ms + dur*60000)).map(x=>[x.type,x.value]));
+        estTime = `${p.hour}:${p.minute}`;
+      }
+      if (isArrival && f.datetime_landed) {
+        const ms = new Date(f.datetime_landed.endsWith('Z') ? f.datetime_landed : f.datetime_landed + 'Z').getTime();
+        const p  = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour:'2-digit', minute:'2-digit', hour12:false }).formatToParts(new Date(ms)).map(x=>[x.type,x.value]));
+        estTime = `${p.hour}:${p.minute}`;
+      }
+      return {
+        id, flightNo, type: isArrival ? 'arrival' : 'departure',
+        fr24: {
+          callsign: f.callsign, hex: f.hex,
+          orig: f.orig_icao, dest: f.dest_icao, dest_actual: f.dest_icao_actual || null,
+          takeoff: f.datetime_takeoff || null,
+          landed:  f.datetime_landed  || null,
+          fr24Confirmed, derivedStatus, estTime,
+        },
+        stored: stored[id] || null,
+      };
+    });
+
+    res.json({ ok: true, at: new Date().toISOString(), home, entries });
+  } catch (err) {
+    res.json({ ok: false, error: err.message });
+  }
+});
+
 // ---- Public board data -------------------------------------------------------
 app.get('/api/flights', async (req, res) => {
   const cfg  = readConfig();
