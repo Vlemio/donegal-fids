@@ -120,16 +120,16 @@ function mergeApi(apiFlights) {
       continue;
     }
 
-    // Flight IDs repeat every day (e.g. "ARR-EI3402" is the same ID today and
-    // tomorrow), but the live API only ever reports on TODAY's real-world
-    // operations. Once today's flights are done, ensureTodaysFlights
-    // pre-populates tomorrow's board under the same ID (schedDate = tomorrow,
-    // status reset to Scheduled) so the display never goes empty. Without this
-    // guard, the API's still-arriving report of today's now-completed flight
-    // (e.g. a late "Landed" from AeroDataBox) would land on that lookup by ID
-    // alone and overwrite tomorrow's fresh placeholder with today's stale
-    // status — flipping the public board back and forth between the two.
-    if (existing.schedDate && existing.schedDate > today) continue;
+    // Flight IDs repeat every day (e.g. "ARR-EI3402") but the live API only
+    // ever reports on TODAY's operations. Two guards:
+    // 1. Future schedDate: ensureTodaysFlights pre-populates tomorrow under the
+    //    same ID; the API's report of today's completed flight must not overwrite
+    //    tomorrow's fresh placeholder — this was the original guard.
+    // 2. Past schedDate: a ghost from a previous day that cleanupOld hasn't
+    //    suppressed yet (e.g. stuck On Approach). Today's FR24 data must not
+    //    re-animate a stale entry from a prior day; let cleanupOld suppress it
+    //    first, then ensureTodaysFlights will create a clean entry for today.
+    if (existing.schedDate && existing.schedDate !== today) continue;
 
     // Update only unlocked, API-managed fields on the existing record.
     const locks = existing.locks || {};
