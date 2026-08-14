@@ -274,7 +274,15 @@ function cleanupOld(data, cfg, parts) {
   for (const f of data.flights) {
     if (f.locks && f.locks.keep) continue;
     if (f.suppressed) continue;                                 // already handled
-    if (f.schedDate && f.schedDate !== parts.date) continue;   // tomorrow's pre-populated flight
+    if (f.schedDate && f.schedDate > parts.date) continue;     // tomorrow's pre-populated flight
+    // Ghost from a previous day that was never cleaned up (e.g. stuck On Approach
+    // across midnight). Suppress immediately so ensureTodaysFlights can create a
+    // clean entry for today on the next tick.
+    if (f.schedDate && f.schedDate < parts.date) {
+      f.suppressed = true;
+      f.live       = null;
+      continue;
+    }
     const t = toMinutes(f.time);
     if (t == null) {
       // Timeless flights (no scheduled time): suppress immediately if terminal.
