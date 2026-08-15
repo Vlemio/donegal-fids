@@ -229,12 +229,28 @@ function autoAdvanceStatus(data, cfg, parts) {
       // Final / airline-set states: clock never touches these.
       if (f.status === 'Landed' || f.status === 'Diverted' || f.status === 'Cancelled') continue;
 
-      // "On Approach" is resolved exclusively by FR24 datetime_landed (via mergeApi)
-      // or by a confirmed ADS-B landing in tracker.js. The clock never declares
-      // Landed — a holding orbit or missed approach can keep an aircraft airborne
-      // 40+ min past ETA, and a false Landed confuses passengers. Ghost cleanup
-      // (no FR24 confirmation after 2 h) is handled in cleanupOld instead.
-      if (f.status === 'On Approach') continue;
+      // "On Approach" is resolved by FR24 datetime_landed (via mergeApi) or ADS-B.
+      // Clock fallback only fires for non-ADS-B flights (f.live null) that are well
+      // past estimated arrival — long threshold (ETA+70) outlasts realistic holding
+      // orbits (EI3408 orbit was ETA+48; FR24 confirms landing ~10 min after touchdown,
+      // so FR24 wins before ETA+70 for any orbit ≤55 min). Falls back to t+90 when
+      // no ETA is available (FR24 never confirmed takeoff either).
+      if (f.status === 'On Approach') {
+        if (!f.live) {
+          const etaMin = toMinutes(f.estTime);
+          const ref    = etaMin !== null ? etaMin : t;
+          const thresh = etaMin !== null ? ref + 70 : ref + 90;
+          if (now >= thresh) {
+            f.status  = 'Landed';
+            // Stamp estTime with the clock time so cleanupOld uses it as the
+            // landing-time reference rather than the original scheduled time.
+            const hh = String(Math.floor(now / 60)).padStart(2, '0');
+            const mm = String(now % 60).padStart(2, '0');
+            f.estTime = `${hh}:${mm}`;
+          }
+        }
+        continue;
+      }
 
       // En Route / Departed means FR24 confirmed the aircraft left its origin via ADS-B.
       // Don't let the clock overwrite this with On Time / Delayed — the plane IS in the air.
@@ -294,11 +310,17 @@ function cleanupOld(data, cfg, parts) {
       continue;
     }
 
+    // For Landed arrivals use the actual landing time (estTime set by FR24 or the
+    // clock fallback) as the reference, not the scheduled time — a delayed or
+    // clock-fallback landing would otherwise be suppressed before 30 min are up.
+    const landedRef = (f.type === 'arrival' && f.status === 'Landed')
+      ? (toMinutes(f.estTime) ?? t)
+      : t;
     const shouldSuppress =
-      (f.type === 'departure' && f.status === 'Departed'  && parts.minutes > t + depKeep) ||
-      (f.type === 'arrival'   && f.status === 'Landed'    && parts.minutes > t + arrKeep) ||
-      (f.type === 'arrival'   && f.status === 'Delayed'   && parts.minutes > t + 90)     ||
-      (f.type === 'arrival'   && f.status === 'On Approach' && parts.minutes > t + 120)  ||
+      (f.type === 'departure' && f.status === 'Departed'    && parts.minutes > t       + depKeep) ||
+      (f.type === 'arrival'   && f.status === 'Landed'      && parts.minutes > landedRef + arrKeep) ||
+      (f.type === 'arrival'   && f.status === 'Delayed'     && parts.minutes > t       + 90)     ||
+      (f.type === 'arrival'   && f.status === 'On Approach' && parts.minutes > t       + 120)    ||
       (f.status === 'Cancelled' && parts.minutes > t + 120) ||
       (f.status === 'Diverted'  && parts.minutes > t + 120);
 
