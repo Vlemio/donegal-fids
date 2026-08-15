@@ -80,11 +80,12 @@ function getIp(req) {
 
 // Routes that don't need auth
 const PUBLIC_ROUTES = [
-  { m: 'GET',  p: '/api/flights' },   // public board data for the airport website
-  { m: 'POST', p: '/api/auth' },      // login form
-  { m: 'GET',  p: '/api/logout' },    // logout (clears cookie — no auth needed)
-  { m: 'GET',  p: '/api/tick' },      // cron-job.org — has its own TICK_SECRET check
+  { m: 'GET',  p: '/api/flights' },       // public board data for the airport website
+  { m: 'POST', p: '/api/auth' },          // login form
+  { m: 'GET',  p: '/api/logout' },        // logout (clears cookie — no auth needed)
+  { m: 'GET',  p: '/api/tick' },          // cron-job.org — has its own TICK_SECRET check
   { m: 'POST', p: '/api/tick' },
+  { m: 'GET',  p: '/api/debug/fr24' },    // FR24 raw debug — has its own TICK_SECRET check
 ];
 
 // Auth wall — runs before every API route.
