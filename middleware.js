@@ -65,8 +65,9 @@ export default async function middleware(request) {
   // Public: static assets
   if (/\.(css|js|png|jpg|jpeg|ico|svg|woff2?|map)$/.test(pathname)) return;
 
-  // Public: tick (Bearer-authenticated inside the handler) and auth endpoints
+  // Public: tick and debug endpoints (Bearer-authenticated inside the handler)
   if (pathname === '/api/tick') return;
+  if (pathname === '/api/debug/fr24') return;
   if (pathname === '/api/auth') return;
   if (pathname === '/login.html' || pathname === '/login') return;
 
