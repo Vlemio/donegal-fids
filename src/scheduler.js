@@ -229,28 +229,12 @@ function autoAdvanceStatus(data, cfg, parts) {
       // Final / airline-set states: clock never touches these.
       if (f.status === 'Landed' || f.status === 'Diverted' || f.status === 'Cancelled') continue;
 
-      // "On Approach" is resolved by FR24 datetime_landed (via mergeApi) or ADS-B.
-      // Clock fallback only fires for non-ADS-B flights (f.live null) that are well
-      // past estimated arrival — long threshold (ETA+70) outlasts realistic holding
-      // orbits (EI3408 orbit was ETA+48; FR24 confirms landing ~10 min after touchdown,
-      // so FR24 wins before ETA+70 for any orbit ≤55 min). Falls back to t+90 when
-      // no ETA is available (FR24 never confirmed takeoff either).
-      if (f.status === 'On Approach') {
-        if (!f.live) {
-          const etaMin = toMinutes(f.estTime);
-          const ref    = etaMin !== null ? etaMin : t;
-          const thresh = etaMin !== null ? ref + 70 : ref + 90;
-          if (now >= thresh) {
-            f.status  = 'Landed';
-            // Stamp estTime with the clock time so cleanupOld uses it as the
-            // landing-time reference rather than the original scheduled time.
-            const hh = String(Math.floor(now / 60)).padStart(2, '0');
-            const mm = String(now % 60).padStart(2, '0');
-            f.estTime = `${hh}:${mm}`;
-          }
-        }
-        continue;
-      }
+      // "On Approach" is resolved exclusively by FR24 datetime_landed (via mergeApi).
+      // The clock never declares Landed — the aircraft could be holding, on a missed
+      // approach, or diverted to an alternate and FR24 may not have caught it yet.
+      // If no confirmation arrives, cleanupOld suppresses at t+120 and the operator
+      // can update the status manually from the admin panel.
+      if (f.status === 'On Approach') continue;
 
       // En Route / Departed means FR24 confirmed the aircraft left its origin via ADS-B.
       // Don't let the clock overwrite this with On Time / Delayed — the plane IS in the air.
