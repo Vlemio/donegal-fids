@@ -317,6 +317,7 @@ function track(data, cfg, states, nowDate = new Date()) {
       const missingMs    = nowDate.getTime() - dropoutSince;
       if (missingMs >= 60 * 1000) {
         f.status      = 'Landed';
+        f.landedAt    = f.landedAt || fmtTime(nowDate, tz);
         f.estTime     = null;
         f.estLate     = false;
         f.estVeryLate = false;
@@ -339,6 +340,8 @@ function track(data, cfg, states, nowDate = new Date()) {
       // Only clear ETA if we were actively tracking this flight via ADS-B.
       // When f.live was null the ETA was set by an API (FR24 estimated, AeroDataBox
       // revised time) — keep it so the board shows something meaningful.
+      // landedAt is intentionally preserved — once set it must survive ADS-B dropout
+      // so cleanupOld can use the real landing time even after estTime is cleared.
       if (wasLive) { f.estTime = null; f.estLate = false; f.estVeryLate = false; }
       continue;
     }
@@ -435,6 +438,7 @@ function track(data, cfg, states, nowDate = new Date()) {
           if (since !== null) {
             const groundMs = nowDate.getTime() - since;
             if (groundMs >= minGroundMs) {
+              f.landedAt = f.landedAt || fmtTime(nowDate, tz);
               f.status = 'Landed';
             }
           }

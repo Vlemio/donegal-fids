@@ -127,6 +127,7 @@ function writeConfig(cfg) {
     ? path.join(kv.TMP_DIR, 'config.json')
     : path.join(__dirname, '..', 'config.json');
   fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2), 'utf8');
+  kv.saveConfig(cfg).catch(() => {}); // persist to KV; fire-and-forget
 }
 
 // ---- In-memory state (persists across warm invocations, resets on cold start)

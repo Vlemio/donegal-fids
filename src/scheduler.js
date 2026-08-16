@@ -299,7 +299,7 @@ function cleanupOld(data, cfg, parts) {
     // clock fallback) as the reference, not the scheduled time — a delayed or
     // clock-fallback landing would otherwise be suppressed before 30 min are up.
     const landedRef = (f.type === 'arrival' && f.status === 'Landed')
-      ? (toMinutes(f.estTime) ?? t)
+      ? (toMinutes(f.landedAt) ?? toMinutes(f.estTime) ?? t)
       : t;
     const shouldSuppress =
       (f.type === 'departure' && f.status === 'Departed'    && parts.minutes > t       + depKeep) ||

@@ -27,9 +27,10 @@ async function loadState() {
   process.env.DATA_DIR = TMP_DIR;
 
   const db = getKv();
-  const [flights, schedule] = await Promise.all([
+  const [flights, schedule, config] = await Promise.all([
     db.get('flights'),
     db.get('schedule'),
+    db.get('config'),
   ]);
 
   // Flights
@@ -47,9 +48,12 @@ async function loadState() {
     if (fs.existsSync(seed)) fs.copyFileSync(seed, scheduleDst);
   }
 
-  // Config — built from example template; secrets always come from env vars
+  // Config — persisted to KV (without secrets, which are re-overlaid from env vars).
+  // Falls back to config.example.json on first deploy (KV key absent).
   const cfgDst = path.join(TMP_DIR, 'config.json');
-  if (!fs.existsSync(cfgDst)) {
+  if (config) {
+    fs.writeFileSync(cfgDst, JSON.stringify(config, null, 2));
+  } else if (!fs.existsSync(cfgDst)) {
     const ex = path.join(ROOT, 'config.example.json');
     if (fs.existsSync(ex)) fs.copyFileSync(ex, cfgDst);
   }
@@ -67,6 +71,17 @@ async function saveFlights() {
   // Read back immediately to confirm the write reached the store.
   const verify = await db.get('flights');
   return { wrote: data.lastUpdated, readback: verify?.lastUpdated };
+}
+
+// Write config to KV — secrets stripped so they live only in env vars.
+async function saveConfig(cfg) {
+  if (!HAS_KV) return;
+  const safe = JSON.parse(JSON.stringify(cfg));
+  if (safe.fr24)        delete safe.fr24.apiKey;
+  if (safe.api)         delete safe.api.rapidApiKey;
+  if (safe.opensky)     { delete safe.opensky.clientId; delete safe.opensky.clientSecret; }
+  if (safe.websiteSync) { delete safe.websiteSync.gistId; delete safe.websiteSync.gistToken; }
+  await getKv().set('config', safe);
 }
 
 // Write the current /tmp/schedule.json back to KV.
@@ -164,7 +179,7 @@ async function releaseTickLock() {
 }
 
 module.exports = {
-  loadState, saveFlights, saveSchedule,
+  loadState, saveFlights, saveSchedule, saveConfig,
   getLiveData, setLiveData,
   getPollState, setPollState,
   getLoginFail, setLoginFail, clearLoginFail,
