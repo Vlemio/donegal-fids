@@ -189,6 +189,7 @@ function autoAdvanceStatus(data, cfg, parts) {
       const TURNAROUND_MIN = 25;
       const inbound = data.flights.find(
         (a) =>
+          !a.suppressed &&
           a.type === 'arrival' &&
           a.airlineCode === f.airlineCode &&
           toMinutes(a.time) !== null &&
@@ -302,6 +303,7 @@ function cleanupOld(data, cfg, parts) {
       : t;
     const shouldSuppress =
       (f.type === 'departure' && f.status === 'Departed'    && parts.minutes > t       + depKeep) ||
+      (f.type === 'departure' && f.status === 'Delayed'     && parts.minutes > t       + 180)    ||
       (f.type === 'arrival'   && f.status === 'Landed'      && parts.minutes > landedRef + arrKeep) ||
       (f.type === 'arrival'   && f.status === 'Delayed'     && parts.minutes > t       + 90)     ||
       (f.type === 'arrival'   && f.status === 'On Approach' && parts.minutes > t       + 120)    ||
