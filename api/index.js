@@ -146,7 +146,7 @@ const firedReasons   = new Map();
 // ---- Polling helpers (same logic as server.js) -----------------------------
 const POLL_CHECK_MS   = 2 * 60 * 1000;
 const TRIG_TOL        = 3;
-const FIXED_SWEEPS    = [4*60, 9*60, 12*60, 15*60, 17*60, 19*60, 21*60];
+const FIXED_SWEEPS    = [9*60, 12*60, 15*60]; // 3 sweeps/day covers EIDL ops hours
 const REASON_COOLDOWN = 12 * 60 * 1000;
 
 function _nowMinsTz(tz) {
@@ -179,13 +179,11 @@ function apiTrigger(data, cfg) {
     if (t == null) continue;
     const diff = now - t;
     if (Math.abs(diff + 60) <= TRIG_TOL) return `T-60 ${f.flightNo}`;
-    if (f.type === 'arrival') {
-      if (Math.abs(diff + 20) <= TRIG_TOL) return `T-20 ${f.flightNo}`;
-      if (Math.abs(diff)      <= TRIG_TOL) return `T   ${f.flightNo}`;
-      if (diff > 0 && diff <= 120 && diff % 20 <= TRIG_TOL) return `+${diff}min delay ${f.flightNo}`;
-    } else {
-      if (Math.abs(diff) <= TRIG_TOL) return `T   ${f.flightNo}`;
-      if (diff > 0 && diff <= 120 && f.status !== 'Departed' && diff % 20 <= TRIG_TOL) return `+${diff}min delay ${f.flightNo}`;
+    if (Math.abs(diff)      <= TRIG_TOL) return `T   ${f.flightNo}`;
+    // Check for delays every 60 min (not 20) to stay within AeroDataBox quota.
+    if (diff > 0 && diff <= 120 && diff % 60 <= TRIG_TOL) {
+      if (f.type === 'arrival') return `+${diff}min delay ${f.flightNo}`;
+      if (f.status !== 'Departed')    return `+${diff}min delay ${f.flightNo}`;
     }
   }
   return null;
@@ -204,12 +202,17 @@ async function pollOnce(forceReason) {
     return lastPoll;
   }
   if (!forceReason) {
-    const last = firedReasons.get(reason) || 0;
+    // Check both in-memory (warm Lambda) and KV (survives cold starts) so the
+    // same trigger never re-fires just because Vercel recycled the container.
+    const memLast = firedReasons.get(reason) || 0;
+    const kvLast  = (await kv.getLastFired(reason)) || 0;
+    const last    = Math.max(memLast, kvLast);
     if (Date.now() - last < REASON_COOLDOWN) {
       lastPoll = { ...lastPoll, at: new Date().toISOString(), message: 'Standby' };
       return lastPoll;
     }
     firedReasons.set(reason, Date.now());
+    kv.setLastFired(reason, Date.now()).catch(() => {}); // fire-and-forget
   }
   const results = { adb: 0, fr24: 0, fa: 0, errors: [] };
   try {

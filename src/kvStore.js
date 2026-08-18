@@ -178,6 +178,22 @@ async function releaseTickLock() {
   await getKv().del('tick-lock');
 }
 
+// AeroDataBox dedup: persist the last-fired timestamp per trigger reason so
+// that Lambda cold starts (which reset the in-memory firedReasons Map) don't
+// cause the same trigger to re-fire and burn extra API quota.
+// TTL = 13 min (just above REASON_COOLDOWN = 12 min) so stale entries
+// expire automatically and don't block the next legitimate fire.
+async function getLastFired(reason) {
+  if (!HAS_KV) return null;
+  const val = await getKv().get(`fired:${reason}`);
+  return val ? Number(val) : null;
+}
+
+async function setLastFired(reason, tsMs) {
+  if (!HAS_KV) return;
+  await getKv().set(`fired:${reason}`, tsMs, { ex: 13 * 60 });
+}
+
 module.exports = {
   loadState, saveFlights, saveSchedule, saveConfig,
   getLiveData, setLiveData,
@@ -185,5 +201,6 @@ module.exports = {
   getLoginFail, setLoginFail, clearLoginFail,
   acquireTickLock, releaseTickLock,
   getLastTick, setLastTick,
+  getLastFired, setLastFired,
   TMP_DIR, HAS_KV,
 };
