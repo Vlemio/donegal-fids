@@ -412,7 +412,8 @@ app.get('/api/tick', async (req, res) => {
     } catch (err) { results.fr24 = `err: ${err.message}`; }
 
     try {
-      const p = await pollOnce();
+      const forceAdb = req.query.forceAdb === '1';
+      const p = await pollOnce(forceAdb ? 'forced' : undefined);
       results.poll = p.message;
     } catch (err) { results.pollErr = err.message; }
 
