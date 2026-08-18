@@ -446,6 +446,26 @@ app.get('/api/tick', async (req, res) => {
   res.json({ ok: true, ms: Date.now() - t0, ...results });
 });
 
+// ---- Force AeroDataBox poll — bypass the trigger-timing gate ----------------
+// Protected by TICK_SECRET. Use when a flight needs immediate status update
+// (e.g. cancellation not yet caught by the scheduled sweeps).
+app.post('/api/admin/force-poll', async (req, res) => {
+  const secret = process.env.TICK_SECRET;
+  if (secret) {
+    const auth = req.headers.authorization || '';
+    if (!timingSafeStringEqual(auth, `Bearer ${secret}`)) {
+      return res.status(401).json({ ok: false, error: 'Unauthorized' });
+    }
+  }
+  try {
+    const result = await pollOnce('forced');
+    await kv.saveFlights();
+    res.json({ ok: true, poll: result });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // ---- FR24 debug — raw API response vs stored state --------------------------
 // Protected by TICK_SECRET. Shows exactly what FR24 returns for every flight
 // and how the adapter and mergeApi interpreted it — useful for diagnosing
