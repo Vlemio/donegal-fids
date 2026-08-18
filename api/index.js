@@ -86,6 +86,7 @@ const PUBLIC_ROUTES = [
   { m: 'GET',  p: '/api/tick' },          // cron-job.org — has its own TICK_SECRET check
   { m: 'POST', p: '/api/tick' },
   { m: 'GET',  p: '/api/debug/fr24' },    // FR24 raw debug — has its own TICK_SECRET check
+  { m: 'POST', p: '/api/admin/force-poll' }, // AeroDataBox force poll — has its own TICK_SECRET check
 ];
 
 // Auth wall — runs before every API route.
