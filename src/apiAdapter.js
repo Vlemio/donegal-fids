@@ -74,7 +74,7 @@ function mapMovement(item, type) {
 
 async function fetchFlights(config) {
   const { icao } = config.airport;
-  const { rapidApiKey, lookBackHours = 1, lookAheadHours = 10 } = config.api;
+  const { rapidApiKey, lookBackHours = 3, lookAheadHours = 10 } = config.api;
   if (!rapidApiKey) throw new Error('No RapidAPI key configured');
 
   const now = new Date();

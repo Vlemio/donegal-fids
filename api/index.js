@@ -145,7 +145,7 @@ const firedReasons   = new Map();
 // ---- Polling helpers (same logic as server.js) -----------------------------
 const POLL_CHECK_MS   = 2 * 60 * 1000;
 const TRIG_TOL        = 3;
-const FIXED_SWEEPS    = [4*60, 9*60, 12*60, 15*60];
+const FIXED_SWEEPS    = [4*60, 9*60, 12*60, 15*60, 17*60, 19*60, 21*60];
 const REASON_COOLDOWN = 12 * 60 * 1000;
 
 function _nowMinsTz(tz) {
