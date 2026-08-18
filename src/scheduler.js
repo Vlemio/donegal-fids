@@ -176,6 +176,9 @@ function autoAdvanceStatus(data, cfg, parts) {
     if (f.live) continue; // ADS-B tracker owns this flight's status
 
     if (f.type === 'departure') {
+      // Final / airline-set states: clock never touches these.
+      if (f.status === 'Cancelled' || f.status === 'Diverted') continue;
+
       // Effective departure minute: scheduled time, pushed later by two sources:
       // 1. AeroDataBox revised time (estTime already set by mergeApi).
       // 2. Turnaround: the inbound aircraft for this airline hasn't landed yet —
