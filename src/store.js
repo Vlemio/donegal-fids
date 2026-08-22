@@ -175,6 +175,16 @@ function mergeApi(apiFlights) {
     // Once a flight is touched by the API it is considered API-tracked,
     // unless it was created by hand (we keep source 'manual' so staff know).
     if (existing.source !== 'manual') existing.source = 'api';
+
+    // Recompute delay-colour flags from estTime when ADS-B is not tracking this
+    // flight. tracker.js owns estLate/estVeryLate when f.live is set — real
+    // position data is more accurate. When !live, FR24's estTime is the best
+    // signal we have, so derive the amber/red state from it here.
+    if (!existing.live) {
+      const delay = apiDelayMins(existing.time, existing.estTime);
+      existing.estLate     = delay > 0 && delay <= 20;
+      existing.estVeryLate = delay > 20;
+    }
   }
 
   data.flights = Array.from(byId.values());
