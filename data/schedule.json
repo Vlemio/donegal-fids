@@ -52,7 +52,7 @@
     {
       "_id": "lm203-arr-wed",
       "type": "arrival",
-      "time": "14:15",
+      "time": "15:15",
       "airline": "Loganair",
       "airlineCode": "LM",
       "city": "Glasgow",
@@ -64,7 +64,7 @@
     {
       "_id": "lm203-arr-sat",
       "type": "arrival",
-      "time": "14:25",
+      "time": "15:25",
       "airline": "Loganair",
       "airlineCode": "LM",
       "city": "Glasgow",
@@ -76,7 +76,7 @@
     {
       "_id": "lm203-arr-sun",
       "type": "arrival",
-      "time": "17:45",
+      "time": "18:45",
       "airline": "Loganair",
       "airlineCode": "LM",
       "city": "Glasgow",
