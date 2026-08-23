@@ -545,7 +545,9 @@ app.get('/api/debug/fr24', async (req, res) => {
       };
     });
 
-    res.json({ ok: true, at: new Date().toISOString(), home, entries });
+    // rawFr24: full FR24 API response entries, unfiltered — use this to discover
+    // what fields are actually returned (scheduled times, estimated times, etc.)
+    res.json({ ok: true, at: new Date().toISOString(), home, entries, rawFr24: Array.isArray(raw.data) ? raw.data : [] });
   } catch (err) {
     res.json({ ok: false, error: err.message });
   }
