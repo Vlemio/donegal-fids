@@ -358,6 +358,11 @@ body {
 .btn--ghost         { background: transparent; border-color: transparent; }
 .btn--ghost:hover   { background: var(--bg3); border-color: var(--border); }
 .btn--outline       { background: transparent; }
+.panel__bulk        { display: flex; gap: 6px; }
+.btn--bulk-auto     { background: transparent; border-color: var(--blue);   color: var(--blue); }
+.btn--bulk-auto:hover   { background: rgba(56,139,253,.15); border-color: var(--blue); }
+.btn--bulk-manual   { background: transparent; border-color: var(--amber);  color: var(--amber-t); }
+.btn--bulk-manual:hover { background: rgba(210,153,34,.15);  border-color: var(--amber); }
 
 /* ── Modal ──────────────────────────────────────────── */
 .modal-overlay {

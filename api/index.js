@@ -613,6 +613,24 @@ app.post('/api/flights/:id/lock', async (req, res) => {
   res.json(flight);
 });
 
+// ---- Bulk lock/unlock all flights -------------------------------------------
+// locked:true  → lock status for every active flight (full manual mode)
+// locked:false → remove status lock from every active flight (back to auto)
+app.post('/api/flights/lock-all', async (req, res) => {
+  const { locked } = req.body;
+  const data = store.read();
+  let count = 0;
+  for (const f of data.flights) {
+    if (f.suppressed) continue;
+    f.locks = f.locks || {};
+    if (locked) f.locks.status = true; else delete f.locks.status;
+    count++;
+  }
+  store.write(data);
+  await kv.saveFlights();
+  res.json({ ok: true, locked, count });
+});
+
 // ---- Recurring timetable ----------------------------------------------------
 app.get('/api/schedule', (req, res) => res.json(scheduler.readSchedule()));
 

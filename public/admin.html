@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>FIDS Control · Donegal Airport</title>
-  <link rel="stylesheet" href="admin.css?v=7">
+  <link rel="stylesheet" href="admin.css?v=8">
 </head>
 <body>
 
@@ -26,6 +26,10 @@
     <section class="panel">
       <div class="panel__head">
         <h2 class="panel__title">✈ What's on the board</h2>
+        <div class="panel__bulk">
+          <button class="btn btn--sm btn--bulk-auto"   id="btnAutoAll">🔄 All Auto</button>
+          <button class="btn btn--sm btn--bulk-manual" id="btnManualAll">🔒 All Manual</button>
+        </div>
         <span class="panel__updated" id="lastUpdate">Loading…</span>
       </div>
       <div class="board-grid">
@@ -112,6 +116,6 @@
     </div>
   </div>
 
-  <script src="admin.js?v=7"></script>
+  <script src="admin.js?v=8"></script>
 </body>
 </html>

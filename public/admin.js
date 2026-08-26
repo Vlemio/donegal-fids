@@ -361,5 +361,25 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
 
 $('saveSched').addEventListener('click', saveSched);
 
+// ── Bulk lock / unlock ────────────────────────────────────────────────────
+
+async function bulkLock(locked) {
+  const label = locked ? 'manual' : 'auto';
+  const msg   = locked
+    ? 'Set ALL flights to Manual? The auto engine will stop updating statuses.'
+    : 'Set ALL flights back to Auto? The engine will resume updating statuses.';
+  if (!confirm(msg)) return;
+  const res = await apiFetch('/api/flights/lock-all', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ locked })
+  }).then(r => r.json());
+  if (res.ok) setTimeout(loadFlights, 300);
+  else alert('Error: ' + (res.error || 'unknown'));
+}
+
+$('btnManualAll').addEventListener('click', () => bulkLock(true));
+$('btnAutoAll').addEventListener('click',   () => bulkLock(false));
+
 loadFlights();
 setInterval(loadFlights, 10000);
