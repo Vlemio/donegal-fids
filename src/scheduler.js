@@ -233,12 +233,20 @@ function autoAdvanceStatus(data, cfg, parts) {
       // Final / airline-set states: clock never touches these.
       if (f.status === 'Landed' || f.status === 'Diverted' || f.status === 'Cancelled') continue;
 
-      // "On Approach" is resolved exclusively by FR24 datetime_landed (via mergeApi).
-      // The clock never declares Landed — the aircraft could be holding, on a missed
-      // approach, or diverted to an alternate and FR24 may not have caught it yet.
-      // If no confirmation arrives, cleanupOld suppresses at t+120 and the operator
-      // can update the status manually from the admin panel.
-      if (f.status === 'On Approach') continue;
+      // "On Approach" is resolved by FR24 datetime_landed (via mergeApi).
+      // Clock fallback: if ETA + 10 min has passed with no FR24 landing confirmed,
+      // mark as Landed — covers FR24's typical 5-8 min reporting latency plus tick lag.
+      // estTime is used as the proxy landedAt so cleanupOld's 30-min window is correct.
+      // Staff can override manually on a go-around (extremely rare at EIDL).
+      if (f.status === 'On Approach') {
+        const etaMin = toMinutes(f.estTime);
+        if (etaMin !== null && now >= etaMin + 10) {
+          f.status   = 'Landed';
+          f.landedAt = f.estTime;
+          f.live     = null;
+        }
+        continue;
+      }
 
       // En Route / Departed means FR24 confirmed the aircraft left its origin via ADS-B.
       // Don't let the clock overwrite this with On Time / Delayed — the plane IS in the air.
