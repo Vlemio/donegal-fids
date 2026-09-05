@@ -337,12 +337,11 @@ function track(data, cfg, states, nowDate = new Date()) {
     if (!st) {
       const wasLive = !!f.live;
       f.live = null;
-      // Only clear ETA if we were actively tracking this flight via ADS-B.
-      // When f.live was null the ETA was set by an API (FR24 estimated, AeroDataBox
-      // revised time) — keep it so the board shows something meaningful.
-      // landedAt is intentionally preserved — once set it must survive ADS-B dropout
-      // so cleanupOld can use the real landing time even after estTime is cleared.
-      if (wasLive) { f.estTime = null; f.estLate = false; f.estVeryLate = false; }
+      // Preserve estTime on ADS-B dropout — the last live ETA is the best reference
+      // the clock has to transition En Route → On Approach → (dropout handler) → Landed.
+      // Clearing it breaks the fallback chain: the clock needs etaMin to advance status.
+      // landedAt preserved: once set it must survive dropout so cleanupOld uses real time.
+      if (wasLive) { f.estLate = false; f.estVeryLate = false; }
       continue;
     }
     matchedIcao.add(st.icao24);
