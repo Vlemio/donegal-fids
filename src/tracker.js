@@ -429,9 +429,9 @@ function track(data, cfg, states, nowDate = new Date()) {
           // Landed from a brief touch-and-go or a random apron aircraft being matched.
           // Timer only starts once sameAircraft is confirmed (avoids apron ghost matches).
           // If the flight was already On Approach when the ground contact was first seen,
-          // a Go Around is extremely unlikely at Donegal — use a 20 s window.
-          // For all other cases (direct on-ground match without prior On Approach) use 45 s.
-          const minGroundMs = (f.status === 'On Approach' || (f.live && f.live.onGroundSince)) ? 20 * 1000 : 45 * 1000;
+          // a Go Around is extremely unlikely at Donegal — use a 10 s window.
+          // For all other cases (direct on-ground match without prior On Approach) use 20 s.
+          const minGroundMs = (f.status === 'On Approach' || (f.live && f.live.onGroundSince)) ? 10 * 1000 : 20 * 1000;
           const since = (sameAircraft && f.live && f.live.onGroundSince) || (sameAircraft ? nowDate.getTime() : null);
           live.onGroundSince = since;
           if (since !== null) {
