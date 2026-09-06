@@ -102,7 +102,7 @@ function deriveStatus(f, isArrival) {
   return null; // not yet departed — let AeroDataBox / clock own the status
 }
 
-async function fetchFlights(cfg) {
+async function fetchFlights(cfg, pendingDeps = []) {
   const token = cfg.fr24 && cfg.fr24.apiKey;
   if (!token) throw new Error('FR24: no API key in config');
 
@@ -179,6 +179,42 @@ async function fetchFlights(cfg) {
     }
 
     flights.push(entry);
+  }
+
+  // Real-time departure detection via FR24 live positions.
+  // flight-summary/light takes 5-8 min to populate datetime_takeoff after actual takeoff.
+  // live/flight-positions/full is updated continuously — same endpoint used for arrival ETAs.
+  // Only check callsigns not already confirmed by flight-summary (fr24Confirmed flag).
+  const confirmedDepIds = new Set(flights.filter(f => f.type === 'departure' && f.fr24Confirmed).map(f => f.id));
+  const liveDeps = pendingDeps.filter(d => !confirmedDepIds.has(d.id));
+  if (liveDeps.length > 0) {
+    const depCallsigns = liveDeps.map(d => d.callsign).join(',');
+    try {
+      const depPosData = await fr24Get('/live/flight-positions/full', { callsigns: depCallsigns, limit: 10 }, token);
+      for (const pos of (Array.isArray(depPosData.data) ? depPosData.data : [])) {
+        const cs = (pos.callsign || '').toUpperCase();
+        const match = liveDeps.find(d => d.callsign.toUpperCase() === cs);
+        if (!match) continue;
+        const alt = pos.alt ?? pos.baro_altitude ?? pos.geoaltitude;
+        if (alt != null && alt > 30) {
+          // Aircraft is airborne — mark Departed immediately without waiting for flight-summary
+          const existing = flights.find(f => f.id === match.id);
+          if (existing) {
+            existing.status = 'Departed';
+            existing.fr24Confirmed = true;
+            if (pos.hex) existing.fr24hex = pos.hex.toLowerCase();
+          } else {
+            flights.push({
+              id: match.id, type: 'departure', flightNo: match.flightNo,
+              callsign: cs, fr24hex: (pos.hex || '').toLowerCase(),
+              fr24Confirmed: true, status: 'Departed',
+            });
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[FR24] live-dep-check failed:', err.message);
+    }
   }
 
   // Enrich in-flight arrivals with FR24's own live ETA (flight-positions/full).

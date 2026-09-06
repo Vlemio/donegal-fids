@@ -286,7 +286,21 @@ async function fr24Tick(force = false) {
   if (!force && !isInFastPollWindow(data, cfg) && Math.floor(Date.now() / 60000) % 2 !== 0) {
     return 'skipped:throttle';
   }
-  const flights = await fr24Adapter.fetchFlights(cfg);
+  // Pass pending departures so fetchFlights can check live-positions in real time.
+  // flight-summary/light has a 5-8 min processing delay after takeoff; live-positions
+  // is updated continuously (same endpoint used for arrival ETA enrichment).
+  const tz = (cfg.display && cfg.display.timezone) || 'Europe/Dublin';
+  const nowMin = _nowMinsTz(tz);
+  const pendingDeps = data.flights
+    .filter(f => {
+      if (f.type !== 'departure') return false;
+      if (['Departed', 'Cancelled', 'Diverted'].includes(f.status)) return false;
+      if (!f.callsign) return false;
+      const t = _hhmToMins(f.time);
+      return t != null && nowMin >= t && nowMin <= t + 15;
+    })
+    .map(f => ({ id: f.id, flightNo: f.flightNo, callsign: f.callsign }));
+  const flights = await fr24Adapter.fetchFlights(cfg, pendingDeps);
   store.mergeApi(flights);
   return `ok:${flights.length}`;
 }
@@ -345,21 +359,6 @@ async function trackTick() {
       pollOnce('fr24-landing-check').catch(() => {});
     }
 
-    // FR24 departure check
-    const DEPART_POLL_COOLDOWN = 60 * 1000;
-    const depNowMin = _nowMinsTz((cfg.display && cfg.display.timezone) || 'Europe/Dublin');
-    const hasPendingDeparture = freshData.flights.some(f => {
-      if (f.type !== 'departure') return false;
-      if (['Departed', 'Landed', 'Cancelled', 'Diverted'].includes(f.status)) return false;
-      const t = _hhmToMins(f.time);
-      if (t == null) return false;
-      return depNowMin - t >= 0 && depNowMin - t <= 15;
-    });
-    if (hasPendingDeparture && Date.now() - lastDepartPoll > DEPART_POLL_COOLDOWN) {
-      lastDepartPoll = Date.now();
-      pollOnce('fr24-depart-check').catch(() => {});
-    }
-
     const possibleMsg = possible.length ? `, ${possible.length} unscheduled approaching` : '';
     liveData = {
       at: new Date().toISOString(), ok: true,
@@ -372,6 +371,24 @@ async function trackTick() {
       openskyBackoffUntil = Date.now() + Math.pow(2, openskyConsecutive429 - 1) * 5 * 60 * 1000;
     }
     liveData = { ...liveData, at: new Date().toISOString(), ok: false, message: err.message };
+  }
+
+  // FR24 departure check — outside the OpenSky try/catch so it fires even when
+  // OpenSky is unreachable. When OpenSky works it detects departure in <1 min via
+  // ADS-B; this is the fallback that triggers AeroDataBox+FR24 polling instead.
+  const DEPART_POLL_COOLDOWN = 60 * 1000;
+  const depNowMin = _nowMinsTz((cfg.display && cfg.display.timezone) || 'Europe/Dublin');
+  const depCheckData = store.read();
+  const hasPendingDeparture = depCheckData.flights.some(f => {
+    if (f.type !== 'departure') return false;
+    if (['Departed', 'Landed', 'Cancelled', 'Diverted'].includes(f.status)) return false;
+    const t = _hhmToMins(f.time);
+    if (t == null) return false;
+    return depNowMin - t >= 0 && depNowMin - t <= 15;
+  });
+  if (hasPendingDeparture && Date.now() - lastDepartPoll > DEPART_POLL_COOLDOWN) {
+    lastDepartPoll = Date.now();
+    pollOnce('fr24-depart-check').catch(() => {});
   }
 }
 
