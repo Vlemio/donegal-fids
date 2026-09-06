@@ -247,7 +247,8 @@ async function fetchFlights(cfg, pendingDeps = [], onApproachArrivals = [], goAr
       for (const pos of (Array.isArray(posData.data) ? posData.data : [])) {
         const match = inFlightArrivals.find(a => a.fr24_id === pos.fr24_id);
         if (match && pos.eta) {
-          match.entry.estTime = utcToLocalHHMM(parseUtcMs(pos.eta), tz);
+          const etaMs = parseUtcMs(pos.eta);
+          if (etaMs != null && !isNaN(etaMs)) match.entry.estTime = utcToLocalHHMM(etaMs, tz);
         }
       }
     } catch (err) {

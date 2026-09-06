@@ -176,8 +176,10 @@ function autoAdvanceStatus(data, cfg, parts) {
     if (f.live) continue; // ADS-B tracker owns this flight's status
 
     if (f.type === 'departure') {
-      // Final / airline-set states: clock never touches these.
-      if (f.status === 'Cancelled' || f.status === 'Diverted') continue;
+      // Final / confirmed states: clock never touches these.
+      // Departed is owned by FR24 (live-positions alt > 30 m or datetime_takeoff) —
+      // guard it here so the clock cannot walk it back to On Time / Delayed.
+      if (f.status === 'Cancelled' || f.status === 'Diverted' || f.status === 'Departed') continue;
 
       // Effective departure minute: scheduled time, pushed later by two sources:
       // 1. AeroDataBox revised time (estTime already set by mergeApi).
@@ -218,14 +220,8 @@ function autoAdvanceStatus(data, cfg, parts) {
       if (now >= t - 120) f.status = effectiveT > t ? 'Delayed' : 'On Time';
       else f.status = 'Scheduled';
 
-      // Hard correctness guard: if the inbound is still physically in the air
-      // (En Route / On Approach), the turnaround aircraft cannot have departed —
-      // the plane literally hasn't landed yet. Walk back any clock-set Departed
-      // to Delayed. ADS-B-confirmed departures (f.live set) are never touched here.
-      if (inbound && ['En Route', 'On Approach'].includes(inbound.status) &&
-          f.status === 'Departed' && !f.live) {
-        f.status = 'Delayed';
-      }
+      // Note: no walk-back guard needed here — Departed is guarded at the top of
+      // this branch and can never be set by the clock, so f.status is never Departed here.
     } else { // arrival
       // Final / airline-set states: clock never touches these.
       if (f.status === 'Landed' || f.status === 'Diverted' || f.status === 'Cancelled') continue;
@@ -266,11 +262,10 @@ function autoAdvanceStatus(data, cfg, parts) {
       }
 
       // ETA-based On Approach: catches FR24 lag on short routes (Glasgow→Donegal ~40 min).
-      // When estTime is within 12 min, promote to On Approach from any clock-owned status
-      // (Scheduled / On Time / Delayed) — the aircraft is on approach even if FR24 hasn't
-      // confirmed the takeoff yet.
+      // Only fires when we're already within the 2-hour scheduling window (now >= t − 120)
+      // to avoid a premature promotion from a pre-departure AeroDataBox predictedTime.
       const clockEtaMin = toMinutes(f.estTime);
-      if (clockEtaMin !== null && now >= clockEtaMin - 12) {
+      if (clockEtaMin !== null && now >= clockEtaMin - 12 && now >= t - 120) {
         f.status = 'On Approach';
         continue;
       }
