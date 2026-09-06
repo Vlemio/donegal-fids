@@ -212,7 +212,7 @@ async function fetchFlights(cfg, pendingDeps = [], onApproachArrivals = []) {
         }
 
         const arrMatch = liveArrs.find(a => a.callsign.toUpperCase() === cs);
-        if (arrMatch && alt <= 50) {
+        if (arrMatch && alt <= 10) {
           const existing = flights.find(f => f.id === arrMatch.id);
           if (existing) {
             existing.status = 'Landed'; existing.fr24Confirmed = true;
