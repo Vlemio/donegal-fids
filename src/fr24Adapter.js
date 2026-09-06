@@ -74,6 +74,14 @@ const ROUTE_MIN = {
   EGNT: 65,   // Newcastle → Donegal
 };
 
+// AeroDataBox UTC strings use a space separator ("2026-09-06 16:45Z"), not 'T'.
+// Normalise before parsing so both formats work.
+function parseAnyUtcMs(dtStr) {
+  if (!dtStr) return null;
+  const s = dtStr.trim().replace(' ', 'T');
+  return new Date(s.endsWith('Z') ? s : s + 'Z').getTime();
+}
+
 // FR24 datetimes are UTC but have no 'Z' suffix — appending it forces correct parsing.
 function utcToLocalHHMM(utcMs, tz) {
   const p = Object.fromEntries(
@@ -102,7 +110,92 @@ function deriveStatus(f, isArrival) {
   return null; // not yet departed — let AeroDataBox / clock own the status
 }
 
-async function fetchFlights(cfg, pendingDeps = [], onApproachArrivals = [], goAroundChecks = []) {
+// Maps AeroDataBox aircraft.model → FR24 type code (used for filtering origin-side arrivals).
+const MODEL_TO_FR24_TYPE = {
+  'ATR 42': 'AT46', 'ATR 42-300': 'AT46', 'ATR 42-600': 'AT46',
+  'ATR 72': 'AT76', 'ATR 72-500': 'AT76', 'ATR 72-600': 'AT76',
+};
+const TURNAROUND_MIN        = 25;  // minimum ground time at origin before next departure
+const ORIGIN_DELAY_BUFFER   = 10;  // minutes of delay at origin before we show Delayed
+const ORIGIN_LOOKBACK_MS    = 90 * 60 * 1000; // only consider landings in the last 90 min
+
+// Check whether an arrival's inbound aircraft landed late at the origin airport.
+// If landing + turnaround exceeds the scheduled departure + buffer, the arrival will be
+// delayed and we update estTime so the scheduler shows Delayed automatically.
+// Returns an array of { id, estTime } corrections.
+async function checkOriginDelay(preDepArrivals, token, tz) {
+  if (!preDepArrivals.length) return [];
+  const results = [];
+
+  // Group by origin ICAO to avoid duplicate flight-summary calls for the same airport.
+  const byOrigin = {};
+  for (const a of preDepArrivals) {
+    const fr24Type = MODEL_TO_FR24_TYPE[a.aircraftModel] ||
+                     MODEL_TO_FR24_TYPE[(a.aircraftModel || '').split(' ').slice(0,2).join(' ')] ||
+                     MODEL_TO_FR24_TYPE[(a.aircraftModel || '').split('-')[0].trim()];
+    if (!fr24Type) continue;
+    if (!byOrigin[a.originIcao]) byOrigin[a.originIcao] = [];
+    byOrigin[a.originIcao].push({ ...a, fr24Type });
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  for (const [originIcao, arrivals] of Object.entries(byOrigin)) {
+    let originEntries;
+    try {
+      const data = await fr24Get('/flight-summary/light', {
+        flight_datetime_from: `${today} 00:00:00`,
+        flight_datetime_to:   `${today} 23:59:59`,
+        airports: `both:${originIcao}`,
+        limit: 50,
+      }, token);
+      originEntries = Array.isArray(data.data) ? data.data : [];
+    } catch (err) {
+      console.warn(`[FR24] origin-delay ${originIcao}:`, err.message);
+      continue;
+    }
+
+    for (const flight of arrivals) {
+      const schedDepMs = parseAnyUtcMs(flight.originSchedDepUtc);
+      if (!schedDepMs) continue;
+
+      // Candidates: flights that arrived at this origin airport recently, matching
+      // the expected aircraft type and (if known) the operating airline.
+      const now = Date.now();
+      const candidates = originEntries
+        .filter(e =>
+          (e.dest_icao === originIcao || e.dest_icao_actual === originIcao) &&
+          e.datetime_landed &&
+          (e.type || '').toUpperCase() === flight.fr24Type &&
+          (!flight.airlineIcao || (e.operating_as || e.painted_as || '').toUpperCase() === flight.airlineIcao.toUpperCase())
+        )
+        .map(e => ({ landedMs: parseUtcMs(e.datetime_landed), e }))
+        .filter(({ landedMs }) => landedMs && (now - landedMs) < ORIGIN_LOOKBACK_MS)
+        .sort((a, b) => b.landedMs - a.landedMs);
+
+      if (!candidates.length) continue;
+
+      const { landedMs } = candidates[0];
+      const earliestDepMs = landedMs + TURNAROUND_MIN * 60 * 1000;
+      const delayMs = earliestDepMs - schedDepMs;
+
+      if (delayMs <= ORIGIN_DELAY_BUFFER * 60 * 1000) continue; // within buffer
+
+      const delayMin = Math.ceil(delayMs / 60000);
+      // Revised arrival at EIDL = scheduled arrival + same delay (departure delay flows through).
+      const [hh, mm] = (flight.time || '00:00').split(':').map(Number);
+      const revisedMin = hh * 60 + mm + delayMin;
+      const revHH = String(Math.floor(revisedMin / 60) % 24).padStart(2, '0');
+      const revMM = String(revisedMin % 60).padStart(2, '0');
+
+      console.log(`[FR24] origin-delay ${flight.id}: landed ${new Date(landedMs).toISOString()} → +${delayMin}min → estTime ${revHH}:${revMM}`);
+      results.push({ id: flight.id, type: 'arrival', flightNo: flight.flightNo, estTime: `${revHH}:${revMM}` });
+    }
+  }
+  return results;
+}
+
+async function fetchFlights(cfg, pendingDeps = [], onApproachArrivals = [], goAroundChecks = [], preDepArrivals = []) {
   const token = cfg.fr24 && cfg.fr24.apiKey;
   if (!token) throw new Error('FR24: no API key in config');
 
@@ -252,6 +345,18 @@ async function fetchFlights(cfg, pendingDeps = [], onApproachArrivals = [], goAr
       }
     } catch (err) {
       console.warn('[FR24] live-positions/full failed, using ROUTE_MIN fallback:', err.message);
+    }
+  }
+
+  // Origin-side delay detection: check if the inbound aircraft landed late at the origin.
+  // Runs only for pre-departure arrivals with known originIcao + aircraftModel.
+  const originDelays = await checkOriginDelay(preDepArrivals, token, tz);
+  for (const od of originDelays) {
+    const existing = flights.find(f => f.id === od.id);
+    if (existing) {
+      existing.estTime = od.estTime;
+    } else {
+      flights.push(od);
     }
   }
 

@@ -55,6 +55,9 @@ function mapMovement(item, type) {
 
   const number = (item.number || '').replace(/\s+/g, '').toUpperCase();
   const airlineName = (item.airline && item.airline.name) || '';
+  const airlineIcao = (item.airline && item.airline.icao) || null;
+  const aircraftModel = (item.aircraft && item.aircraft.model) || null;
+  const otherSched = otherSide.scheduledTime || {};
 
   const schedHHMM = hhmm(sched.local);
   const revHHMM = hhmm(revised.local);
@@ -66,7 +69,13 @@ function mapMovement(item, type) {
     estTime: revHHMM && revHHMM !== schedHHMM ? revHHMM : null,
     airline: airlineName,
     airlineCode: number.slice(0, 2),
+    airlineIcao: airlineIcao || null,
+    aircraftModel: aircraftModel || null,
     city: otherPort.municipalityName || otherPort.shortName || otherPort.name || '',
+    // For arrivals: origin airport and scheduled departure from origin (UTC).
+    // Used by fr24Adapter to detect origin-side delay before the flight departs.
+    originIcao: type === 'arrival' ? (otherPort.icao || null) : null,
+    originSchedDepUtc: type === 'arrival' ? (otherSched.utc || null) : null,
     codeshare: Array.isArray(item.codeshareStatus) ? item.codeshareStatus.map((c) => String(c).toUpperCase()) : [],
     status: mapStatus(item.status, type)
   };
