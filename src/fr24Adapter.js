@@ -213,13 +213,15 @@ async function fetchFlights(cfg, pendingDeps = [], onApproachArrivals = []) {
 
         const arrMatch = liveArrs.find(a => a.callsign.toUpperCase() === cs);
         if (arrMatch && alt <= 10) {
+          // Don't set Landed immediately — caller (fr24Tick) confirms after ≥15s in onGroundSince.
+          // Only push the candidate marker; mergeApi ignores fr24LandingCandidate (not in API_FIELDS).
           const existing = flights.find(f => f.id === arrMatch.id);
           if (existing) {
-            existing.status = 'Landed'; existing.fr24Confirmed = true;
+            existing.fr24LandingCandidate = true;
             if (pos.hex) existing.fr24hex = pos.hex.toLowerCase();
           } else {
             flights.push({ id: arrMatch.id, type: 'arrival', flightNo: arrMatch.flightNo,
-              callsign: cs, fr24hex: (pos.hex || '').toLowerCase(), fr24Confirmed: true, status: 'Landed' });
+              callsign: cs, fr24hex: (pos.hex || '').toLowerCase(), fr24LandingCandidate: true });
           }
         }
       }

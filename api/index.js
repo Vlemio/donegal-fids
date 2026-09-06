@@ -141,6 +141,7 @@ let openskyBackoffUntil   = 0;
 let openskyConsecutive429 = 0;
 let lastApproachPoll = 0;
 let lastDepartPoll   = 0;
+const onGroundSince  = new Map(); // id → timestamp of first ≤10m detection (in-memory)
 const firedReasons   = new Map();
 
 // ---- Polling helpers (same logic as server.js) -----------------------------
@@ -306,6 +307,31 @@ async function fr24Tick(force = false) {
     .map(f => ({ id: f.id, flightNo: f.flightNo, callsign: f.callsign }));
   const flights = await fr24Adapter.fetchFlights(cfg, pendingDeps, onApproachArrivals);
   store.mergeApi(flights);
+
+  // Landing confirmation: require two consecutive ticks with alt ≤ 10m before setting
+  // Landed — prevents a false positive on a very-late go-around. Ticks are 2 min apart
+  // so the ≥15s threshold is always satisfied on the second tick; the Map clears if the
+  // aircraft climbs back above 10m between ticks (go-around detected, reset).
+  const groundIds = new Set(flights.filter(f => f.fr24LandingCandidate).map(f => f.id));
+  for (const [id] of onGroundSince) { if (!groundIds.has(id)) onGroundSince.delete(id); }
+  for (const id of groundIds) { if (!onGroundSince.has(id)) onGroundSince.set(id, Date.now()); }
+  const landingConfirmed = [];
+  for (const [id, since] of onGroundSince) {
+    if (Date.now() - since >= 15000) landingConfirmed.push(id);
+  }
+  if (landingConfirmed.length > 0) {
+    const d = store.read();
+    let changed = false;
+    for (const f of d.flights) {
+      if (f.type !== 'arrival' || f.status !== 'On Approach') continue;
+      if (!landingConfirmed.includes(f.id)) continue;
+      f.status = 'Landed';
+      onGroundSince.delete(f.id);
+      changed = true;
+    }
+    if (changed) store.write(d);
+  }
+
   return `ok:${flights.length}`;
 }
 
