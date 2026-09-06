@@ -122,7 +122,7 @@ async function fetchFlights(config) {
 
 // Per-flight cooldown to avoid calling flight-by-number too frequently.
 const _lastFlightByNum = new Map(); // flightNo → last fetch timestamp
-const FLIGHT_BY_NUM_COOLDOWN = 5 * 60 * 1000; // 5 min
+const FLIGHT_BY_NUM_COOLDOWN = 30 * 60 * 1000; // 30 min — prevents runaway calls during manual debug sessions
 
 function _parseUtcMs(s) {
   if (!s) return null;

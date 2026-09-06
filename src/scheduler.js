@@ -266,6 +266,16 @@ function autoAdvanceStatus(data, cfg, parts) {
         }
       }
 
+      // ETA-based On Approach: catches FR24 lag on short routes (Glasgow→Donegal ~40 min).
+      // When estTime is within 12 min, promote to On Approach from any clock-owned status
+      // (Scheduled / On Time / Delayed) — the aircraft is on approach even if FR24 hasn't
+      // confirmed the takeoff yet.
+      const clockEtaMin = toMinutes(f.estTime);
+      if (clockEtaMin !== null && now >= clockEtaMin - 12) {
+        f.status = 'On Approach';
+        continue;
+      }
+
       // Clock fallback: Scheduled → On Time → Delayed.
       // Only runs for statuses the clock owns: Scheduled, On Time, Delayed.
       if (now >= t + 5) f.status = 'Delayed';
