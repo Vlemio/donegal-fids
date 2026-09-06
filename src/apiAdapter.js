@@ -110,8 +110,90 @@ async function fetchFlights(config) {
   const json = await res.json();
   const departures = (json.departures || []).map((it) => mapMovement(it, 'departure'));
   const arrivals = (json.arrivals || []).map((it) => mapMovement(it, 'arrival'));
+  const flights = [...departures, ...arrivals].filter((f) => f.flightNo);
 
-  return [...departures, ...arrivals].filter((f) => f.flightNo);
+  // Enrich pre-departure arrivals with real-time data from AeroDataBox flight-by-number.
+  // This gives us the actual callsign, aircraft hex, revised departure time and predicted
+  // arrival — things the airport-query endpoint doesn't return at Basic quality.
+  await enrichPreDeparture(flights, config);
+
+  return flights;
+}
+
+// Per-flight cooldown to avoid calling flight-by-number too frequently.
+const _lastFlightByNum = new Map(); // flightNo → last fetch timestamp
+const FLIGHT_BY_NUM_COOLDOWN = 5 * 60 * 1000; // 5 min
+
+function _parseUtcMs(s) {
+  if (!s) return null;
+  return new Date(String(s).trim().replace(' ', 'T').replace(/(?<!Z)$/, 'Z')).getTime();
+}
+
+function _utcMsToLocal(ms, tz) {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false })
+      .formatToParts(new Date(ms)).map(x => [x.type, x.value])
+  );
+  return `${p.hour}:${p.minute}`;
+}
+
+async function enrichPreDeparture(flights, config) {
+  const { rapidApiKey } = config.api;
+  if (!rapidApiKey) return;
+  const tz    = (config.display && config.display.timezone) || 'Europe/Dublin';
+  const today = new Date().toISOString().slice(0, 10);
+  const now   = Date.now();
+
+  const pending = flights.filter(f =>
+    f.type === 'arrival' &&
+    !['En Route', 'Departed', 'On Approach', 'Landed', 'Diverted', 'Cancelled'].includes(f.status)
+  );
+
+  for (const flight of pending) {
+    if (now - (_lastFlightByNum.get(flight.flightNo) || 0) < FLIGHT_BY_NUM_COOLDOWN) continue;
+    _lastFlightByNum.set(flight.flightNo, now);
+
+    try {
+      const url = `https://aerodatabox.p.rapidapi.com/flights/number/${flight.flightNo}/${today}`;
+      const res = await fetch(url, {
+        headers: { 'X-RapidAPI-Key': rapidApiKey, 'X-RapidAPI-Host': 'aerodatabox.p.rapidapi.com' }
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const entry = Array.isArray(data) ? data[0] : data;
+      if (!entry) continue;
+
+      // Callsign and hex — update so FR24 live-positions can find this aircraft.
+      if (entry.callSign) flight.callsign = entry.callSign.toUpperCase().replace(/\s+/g, '');
+      if (entry.aircraft && entry.aircraft.modeS) flight.fr24hex = entry.aircraft.modeS.toLowerCase();
+
+      const dep = entry.departure || {};
+      const arr = entry.arrival   || {};
+
+      // Best revised arrival: use predictedTime at EIDL directly; fall back to
+      // revised departure + same offset (delay propagates 1:1 to arrival time).
+      const predArrMs = _parseUtcMs((arr.predictedTime  || {}).utc);
+      const revDepMs  = _parseUtcMs((dep.revisedTime    || {}).utc);
+      const schDepMs  = _parseUtcMs((dep.scheduledTime  || {}).utc);
+
+      if (predArrMs) {
+        flight.estTime = _utcMsToLocal(predArrMs, tz);
+      } else if (revDepMs && schDepMs) {
+        const delayMin = Math.round((revDepMs - schDepMs) / 60000);
+        if (delayMin > 10 && flight.time) {
+          const [hh, mm] = flight.time.split(':').map(Number);
+          const rev = hh * 60 + mm + delayMin;
+          flight.estTime = `${String(Math.floor(rev / 60) % 24).padStart(2, '0')}:${String(rev % 60).padStart(2, '0')}`;
+        }
+      }
+
+      if (flight.estTime) {
+        console.log(`[ADB] ${flight.flightNo}: callsign=${flight.callsign} hex=${flight.fr24hex} estTime=${flight.estTime}`);
+      }
+    } catch (err) {
+      console.warn(`[ADB] enrichPreDeparture ${flight.flightNo}:`, err.message);
+    }
+  }
 }
 
 module.exports = { fetchFlights };

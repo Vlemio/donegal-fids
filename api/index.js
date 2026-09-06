@@ -309,18 +309,7 @@ async function fr24Tick(force = false) {
   const goAroundChecks = data.flights
     .filter(f => f.type === 'arrival' && f.status === 'Landed' && liveGroundSet.has(f.id) && f.callsign)
     .map(f => ({ id: f.id, flightNo: f.flightNo, callsign: f.callsign }));
-  // Pre-departure arrivals: not yet departed from origin, have origin metadata from AeroDataBox.
-  // Used to detect origin-side delay (inbound aircraft landed late → LM203 will be late).
-  const preDepArrivals = data.flights
-    .filter(f =>
-      f.type === 'arrival' &&
-      !['En Route', 'Departed', 'On Approach', 'Landed', 'Diverted', 'Cancelled'].includes(f.status) &&
-      f.originIcao && f.originSchedDepUtc && f.aircraftModel
-    )
-    .map(f => ({ id: f.id, flightNo: f.flightNo, time: f.time, originIcao: f.originIcao,
-                 originSchedDepUtc: f.originSchedDepUtc, aircraftModel: f.aircraftModel,
-                 airlineIcao: f.airlineIcao || null }));
-  const flights = await fr24Adapter.fetchFlights(cfg, pendingDeps, onApproachArrivals, goAroundChecks, preDepArrivals);
+  const flights = await fr24Adapter.fetchFlights(cfg, pendingDeps, onApproachArrivals, goAroundChecks);
   store.mergeApi(flights);
 
   // Track provisional live-position landings and revert on go-around detection.
