@@ -260,7 +260,9 @@ function autoAdvanceStatus(data, cfg, parts) {
         const cutoff = etaMin !== null ? etaMin + 30 : t + 60;
         if (now < cutoff) {
           if (!f.live) {
-            if (etaMin !== null && now >= etaMin - 12) f.status = 'On Approach';
+            // Use scheduled time as fallback when estTime is null (e.g. AeroDataBox cleared it).
+            const etaRef = etaMin !== null ? etaMin : t;
+            if (now >= etaRef - 12) f.status = 'On Approach';
           }
           continue;
         }
