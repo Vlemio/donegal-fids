@@ -23,7 +23,9 @@ const DOW_MAP = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
 
 function displayStatus(f) {
   const s = f.status || 'Scheduled';
-  if (f.type === 'arrival' && (s === 'En Route' || s === 'Departed')) return 'On Time';
+  if (f.type === 'arrival' && (s === 'En Route' || s === 'Departed')) {
+    return (f.estLate || f.estVeryLate) ? 'Delayed' : 'On Time';
+  }
   return s;
 }
 
