@@ -213,12 +213,9 @@ function autoAdvanceStatus(data, cfg, parts) {
         }
       }
 
-      // 15-min grace before clock-driven Departed: gives ADS-B time to detect the
-      // actual takeoff (OpenSky at EIDL only picks up aircraft once airborne at altitude).
-      // If ADS-B confirms departure first it sets 'Departed' via the tracker and
-      // f.live becomes truthy — the clock then skips this flight entirely.
-      if (now >= effectiveT + 15) f.status = 'Departed';
-      else if (now >= t - 120) f.status = effectiveT > t ? 'Delayed' : 'On Time';
+      // Departed is set only by FR24 (live-positions alt > 30m or datetime_takeoff),
+      // never by the clock — a ground-delayed aircraft must not show Departed prematurely.
+      if (now >= t - 120) f.status = effectiveT > t ? 'Delayed' : 'On Time';
       else f.status = 'Scheduled';
 
       // Hard correctness guard: if the inbound is still physically in the air
