@@ -286,9 +286,10 @@ async function fr24Tick(force = false) {
   if (!force && !isInFastPollWindow(data, cfg) && Math.floor(Date.now() / 60000) % 2 !== 0) {
     return 'skipped:throttle';
   }
-  // Pass pending departures so fetchFlights can check live-positions in real time.
-  // flight-summary/light has a 5-8 min processing delay after takeoff; live-positions
-  // is updated continuously (same endpoint used for arrival ETA enrichment).
+  // Pass time-critical flights so fetchFlights can check live-positions in real time.
+  // flight-summary/light has 5-8 min processing lag; live-positions is updated continuously.
+  // Departures: known callsign within 0-15 min of scheduled time → check alt > 30 m.
+  // On Approach arrivals: known callsign → check alt ≤ 50 m (at/near runway level).
   const tz = (cfg.display && cfg.display.timezone) || 'Europe/Dublin';
   const nowMin = _nowMinsTz(tz);
   const pendingDeps = data.flights
@@ -300,7 +301,10 @@ async function fr24Tick(force = false) {
       return t != null && nowMin >= t && nowMin <= t + 15;
     })
     .map(f => ({ id: f.id, flightNo: f.flightNo, callsign: f.callsign }));
-  const flights = await fr24Adapter.fetchFlights(cfg, pendingDeps);
+  const onApproachArrivals = data.flights
+    .filter(f => f.type === 'arrival' && f.status === 'On Approach' && f.callsign)
+    .map(f => ({ id: f.id, flightNo: f.flightNo, callsign: f.callsign }));
+  const flights = await fr24Adapter.fetchFlights(cfg, pendingDeps, onApproachArrivals);
   store.mergeApi(flights);
   return `ok:${flights.length}`;
 }

@@ -102,7 +102,7 @@ function deriveStatus(f, isArrival) {
   return null; // not yet departed — let AeroDataBox / clock own the status
 }
 
-async function fetchFlights(cfg, pendingDeps = []) {
+async function fetchFlights(cfg, pendingDeps = [], onApproachArrivals = []) {
   const token = cfg.fr24 && cfg.fr24.apiKey;
   if (!token) throw new Error('FR24: no API key in config');
 
@@ -181,39 +181,50 @@ async function fetchFlights(cfg, pendingDeps = []) {
     flights.push(entry);
   }
 
-  // Real-time departure detection via FR24 live positions.
-  // flight-summary/light takes 5-8 min to populate datetime_takeoff after actual takeoff.
-  // live/flight-positions/full is updated continuously — same endpoint used for arrival ETAs.
-  // Only check callsigns not already confirmed by flight-summary (fr24Confirmed flag).
+  // Real-time status detection via FR24 live positions (one batch call).
+  // flight-summary/light has 5-8 min processing lag; live-positions is updated continuously.
+  // Departures:        alt > 30 m  → Departed  (aircraft left the ground)
+  // On Approach arrs:  alt ≤ 50 m  → Landed    (aircraft at/near runway level)
   const confirmedDepIds = new Set(flights.filter(f => f.type === 'departure' && f.fr24Confirmed).map(f => f.id));
+  const confirmedArrIds = new Set(flights.filter(f => f.type === 'arrival'   && f.fr24Confirmed && f.status === 'Landed').map(f => f.id));
   const liveDeps = pendingDeps.filter(d => !confirmedDepIds.has(d.id));
-  if (liveDeps.length > 0) {
-    const depCallsigns = liveDeps.map(d => d.callsign).join(',');
+  const liveArrs = onApproachArrivals.filter(a => !confirmedArrIds.has(a.id));
+  const liveChecks = [...liveDeps, ...liveArrs];
+  if (liveChecks.length > 0) {
+    const batchCallsigns = [...new Set(liveChecks.map(c => c.callsign))].join(',');
     try {
-      const depPosData = await fr24Get('/live/flight-positions/full', { callsigns: depCallsigns, limit: 10 }, token);
-      for (const pos of (Array.isArray(depPosData.data) ? depPosData.data : [])) {
-        const cs = (pos.callsign || '').toUpperCase();
-        const match = liveDeps.find(d => d.callsign.toUpperCase() === cs);
-        if (!match) continue;
+      const posData = await fr24Get('/live/flight-positions/full', { callsigns: batchCallsigns, limit: 15 }, token);
+      for (const pos of (Array.isArray(posData.data) ? posData.data : [])) {
+        const cs  = (pos.callsign || '').toUpperCase();
         const alt = pos.alt ?? pos.baro_altitude ?? pos.geoaltitude;
-        if (alt != null && alt > 30) {
-          // Aircraft is airborne — mark Departed immediately without waiting for flight-summary
-          const existing = flights.find(f => f.id === match.id);
+        if (alt == null) continue;
+
+        const depMatch = liveDeps.find(d => d.callsign.toUpperCase() === cs);
+        if (depMatch && alt > 30) {
+          const existing = flights.find(f => f.id === depMatch.id);
           if (existing) {
-            existing.status = 'Departed';
-            existing.fr24Confirmed = true;
+            existing.status = 'Departed'; existing.fr24Confirmed = true;
             if (pos.hex) existing.fr24hex = pos.hex.toLowerCase();
           } else {
-            flights.push({
-              id: match.id, type: 'departure', flightNo: match.flightNo,
-              callsign: cs, fr24hex: (pos.hex || '').toLowerCase(),
-              fr24Confirmed: true, status: 'Departed',
-            });
+            flights.push({ id: depMatch.id, type: 'departure', flightNo: depMatch.flightNo,
+              callsign: cs, fr24hex: (pos.hex || '').toLowerCase(), fr24Confirmed: true, status: 'Departed' });
+          }
+        }
+
+        const arrMatch = liveArrs.find(a => a.callsign.toUpperCase() === cs);
+        if (arrMatch && alt <= 50) {
+          const existing = flights.find(f => f.id === arrMatch.id);
+          if (existing) {
+            existing.status = 'Landed'; existing.fr24Confirmed = true;
+            if (pos.hex) existing.fr24hex = pos.hex.toLowerCase();
+          } else {
+            flights.push({ id: arrMatch.id, type: 'arrival', flightNo: arrMatch.flightNo,
+              callsign: cs, fr24hex: (pos.hex || '').toLowerCase(), fr24Confirmed: true, status: 'Landed' });
           }
         }
       }
     } catch (err) {
-      console.warn('[FR24] live-dep-check failed:', err.message);
+      console.warn('[FR24] live-positions check failed:', err.message);
     }
   }
 
