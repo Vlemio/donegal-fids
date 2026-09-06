@@ -102,7 +102,7 @@ function deriveStatus(f, isArrival) {
   return null; // not yet departed — let AeroDataBox / clock own the status
 }
 
-async function fetchFlights(cfg, pendingDeps = [], onApproachArrivals = []) {
+async function fetchFlights(cfg, pendingDeps = [], onApproachArrivals = [], goAroundChecks = []) {
   const token = cfg.fr24 && cfg.fr24.apiKey;
   if (!token) throw new Error('FR24: no API key in config');
 
@@ -189,7 +189,8 @@ async function fetchFlights(cfg, pendingDeps = [], onApproachArrivals = []) {
   const confirmedArrIds = new Set(flights.filter(f => f.type === 'arrival'   && f.fr24Confirmed && f.status === 'Landed').map(f => f.id));
   const liveDeps = pendingDeps.filter(d => !confirmedDepIds.has(d.id));
   const liveArrs = onApproachArrivals.filter(a => !confirmedArrIds.has(a.id));
-  const liveChecks = [...liveDeps, ...liveArrs];
+  // goAroundChecks: flights already marked Landed by live-positions — watch for a climb
+  const liveChecks = [...liveDeps, ...liveArrs, ...goAroundChecks];
   if (liveChecks.length > 0) {
     const batchCallsigns = [...new Set(liveChecks.map(c => c.callsign))].join(',');
     try {
@@ -213,16 +214,22 @@ async function fetchFlights(cfg, pendingDeps = [], onApproachArrivals = []) {
 
         const arrMatch = liveArrs.find(a => a.callsign.toUpperCase() === cs);
         if (arrMatch && alt <= 10) {
-          // Don't set Landed immediately — caller (fr24Tick) confirms after ≥15s in onGroundSince.
-          // Only push the candidate marker; mergeApi ignores fr24LandingCandidate (not in API_FIELDS).
+          // Set Landed immediately; fr24LandedLive signals it is provisional (may revert on go-around).
           const existing = flights.find(f => f.id === arrMatch.id);
           if (existing) {
-            existing.fr24LandingCandidate = true;
+            existing.status = 'Landed'; existing.fr24Confirmed = true; existing.fr24LandedLive = true;
             if (pos.hex) existing.fr24hex = pos.hex.toLowerCase();
           } else {
             flights.push({ id: arrMatch.id, type: 'arrival', flightNo: arrMatch.flightNo,
-              callsign: cs, fr24hex: (pos.hex || '').toLowerCase(), fr24LandingCandidate: true });
+              callsign: cs, fr24hex: (pos.hex || '').toLowerCase(), fr24Confirmed: true,
+              status: 'Landed', fr24LandedLive: true });
           }
+        }
+
+        // Go-around detection: a provisionally-Landed flight now climbing above 200m
+        const gaMatch = goAroundChecks.find(a => a.callsign.toUpperCase() === cs);
+        if (gaMatch && alt > 200) {
+          flights.push({ id: gaMatch.id, fr24GoAround: true });
         }
       }
     } catch (err) {

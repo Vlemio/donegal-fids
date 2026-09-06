@@ -141,7 +141,7 @@ let openskyBackoffUntil   = 0;
 let openskyConsecutive429 = 0;
 let lastApproachPoll = 0;
 let lastDepartPoll   = 0;
-const onGroundSince  = new Map(); // id → timestamp of first ≤10m detection (in-memory)
+const liveGroundSet  = new Set(); // ids marked Landed by live-positions (provisional, may revert)
 const firedReasons   = new Map();
 
 // ---- Polling helpers (same logic as server.js) -----------------------------
@@ -305,31 +305,33 @@ async function fr24Tick(force = false) {
   const onApproachArrivals = data.flights
     .filter(f => f.type === 'arrival' && f.status === 'On Approach' && f.callsign)
     .map(f => ({ id: f.id, flightNo: f.flightNo, callsign: f.callsign }));
-  const flights = await fr24Adapter.fetchFlights(cfg, pendingDeps, onApproachArrivals);
+  // Flights we marked Landed via live-positions: keep watching for a go-around climb
+  const goAroundChecks = data.flights
+    .filter(f => f.type === 'arrival' && f.status === 'Landed' && liveGroundSet.has(f.id) && f.callsign)
+    .map(f => ({ id: f.id, flightNo: f.flightNo, callsign: f.callsign }));
+  const flights = await fr24Adapter.fetchFlights(cfg, pendingDeps, onApproachArrivals, goAroundChecks);
   store.mergeApi(flights);
 
-  // Landing confirmation: require two consecutive ticks with alt ≤ 10m before setting
-  // Landed — prevents a false positive on a very-late go-around. Ticks are 2 min apart
-  // so the ≥15s threshold is always satisfied on the second tick; the Map clears if the
-  // aircraft climbs back above 10m between ticks (go-around detected, reset).
-  const groundIds = new Set(flights.filter(f => f.fr24LandingCandidate).map(f => f.id));
-  for (const [id] of onGroundSince) { if (!groundIds.has(id)) onGroundSince.delete(id); }
-  for (const id of groundIds) { if (!onGroundSince.has(id)) onGroundSince.set(id, Date.now()); }
-  const landingConfirmed = [];
-  for (const [id, since] of onGroundSince) {
-    if (Date.now() - since >= 15000) landingConfirmed.push(id);
-  }
-  if (landingConfirmed.length > 0) {
+  // Track provisional live-position landings and revert on go-around detection.
+  for (const f of flights) { if (f.fr24LandedLive) liveGroundSet.add(f.id); }
+  const goArounds = flights.filter(f => f.fr24GoAround);
+  if (goArounds.length > 0) {
     const d = store.read();
     let changed = false;
-    for (const f of d.flights) {
-      if (f.type !== 'arrival' || f.status !== 'On Approach') continue;
-      if (!landingConfirmed.includes(f.id)) continue;
-      f.status = 'Landed';
-      onGroundSince.delete(f.id);
-      changed = true;
+    for (const ga of goArounds) {
+      const f = d.flights.find(x => x.id === ga.id);
+      if (f && f.status === 'Landed') {
+        f.status = 'On Approach';
+        liveGroundSet.delete(ga.id);
+        changed = true;
+        console.log(`[FR24] go-around: ${ga.id} reverted Landed → On Approach`);
+      }
     }
     if (changed) store.write(d);
+  }
+  // Once flight-summary confirms Landed (datetime_landed), remove from provisional set.
+  for (const f of flights) {
+    if (f.fr24Confirmed && f.status === 'Landed' && !f.fr24LandedLive) liveGroundSet.delete(f.id);
   }
 
   return `ok:${flights.length}`;
