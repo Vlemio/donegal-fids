@@ -187,7 +187,24 @@ async function fetchFlights(cfg, pendingDeps = [], onApproachArrivals = [], goAr
   // On Approach arrs:  alt ≤ 50 m  → Landed    (aircraft at/near runway level)
   const confirmedDepIds = new Set(flights.filter(f => f.type === 'departure' && f.fr24Confirmed).map(f => f.id));
   const confirmedArrIds = new Set(flights.filter(f => f.type === 'arrival'   && f.fr24Confirmed && f.status === 'Landed').map(f => f.id));
-  const liveDeps = pendingDeps.filter(d => !confirmedDepIds.has(d.id));
+
+  // Supplement pendingDeps (built from store callsigns) with callsigns from the current
+  // FR24 flight-summary/light response. flight-summary/light returns a callsign for a
+  // scheduled departure even before takeoff, so this covers the case where enrichPreDeparture
+  // hadn't yet written the callsign to the store when fr24Tick ran. Without this, the only
+  // path to Departed would be flight-summary/light's datetime_takeoff field, which has a
+  // 5-8 min processing lag — far too slow for a short route or an on-time departure.
+  // Safety: if the plane is still on the ground, alt ≤ 30 m in live-positions, so these
+  // entries are checked but never falsely set to Departed.
+  const selfDeps = flights
+    .filter(e => e.type === 'departure' && !e.fr24Confirmed && e.callsign)
+    .map(e => ({ id: e.id, flightNo: e.flightNo, callsign: e.callsign }));
+  const allPendingDeps = [
+    ...pendingDeps,
+    ...selfDeps.filter(s => !pendingDeps.some(p => p.id === s.id)),
+  ];
+
+  const liveDeps = allPendingDeps.filter(d => !confirmedDepIds.has(d.id));
   const liveArrs = onApproachArrivals.filter(a => !confirmedArrIds.has(a.id));
   // goAroundChecks: flights already marked Landed by live-positions — watch for a climb
   const liveChecks = [...liveDeps, ...liveArrs, ...goAroundChecks];
