@@ -45,6 +45,13 @@ function read() {
   }
 }
 
+// In-memory snapshot of the last data passed to write(). Used by kv.saveFlights()
+// to avoid re-reading from disk, which a concurrent request's kv.loadState() can
+// overwrite between our write() and kv.saveFlights()'s read, losing Landed/Departed
+// state (the race condition). Scoped to this module — immune to disk overwrites.
+let _lastWritten = null;
+function getLastWritten() { return _lastWritten; }
+
 function write(data) {
   // Deduplicate by ID before writing so duplicates can never reach disk or KV.
   if (Array.isArray(data.flights)) {
@@ -54,6 +61,7 @@ function write(data) {
   }
   data.lastUpdated = new Date().toISOString();
   fs.writeFileSync(getDataFile(), JSON.stringify(data, null, 2), 'utf8');
+  _lastWritten = JSON.parse(JSON.stringify(data)); // deep copy, safe from later mutations
   return data;
 }
 
@@ -193,4 +201,4 @@ function mergeApi(apiFlights) {
   return write(data);
 }
 
-module.exports = { read, write, normalise, makeId, mergeApi, STATUSES, DATA_FILE };
+module.exports = { read, write, getLastWritten, normalise, makeId, mergeApi, STATUSES, DATA_FILE };

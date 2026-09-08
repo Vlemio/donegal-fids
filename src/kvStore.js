@@ -59,14 +59,20 @@ async function loadState() {
   }
 }
 
-// Write the current /tmp/flights.json back to KV.
-// Returns the lastUpdated timestamp written (for diagnostic use by /api/tick).
+// Write flight state to KV. Prefers the in-memory snapshot from store.getLastWritten()
+// over re-reading from disk. A concurrent request's kv.loadState() can overwrite
+// /tmp/flights.json between the tick's last store.write() and this call, so reading
+// from disk would persist stale On Approach state instead of the tick's Landed result.
 async function saveFlights() {
   if (!HAS_KV) return null;
   const db = getKv();
-  const p = path.join(TMP_DIR, 'flights.json');
-  if (!fs.existsSync(p)) return null;
-  const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+  const { getLastWritten } = require('./store');
+  let data = getLastWritten();
+  if (!data) {
+    const p = path.join(TMP_DIR, 'flights.json');
+    if (!fs.existsSync(p)) return null;
+    data = JSON.parse(fs.readFileSync(p, 'utf8'));
+  }
   await db.set('flights', data);
   // Read back immediately to confirm the write reached the store.
   const verify = await db.get('flights');
