@@ -230,7 +230,7 @@ async function fetchFlights(cfg, pendingDeps = [], onApproachArrivals = [], goAr
         }
 
         const arrMatch = liveArrs.find(a => a.callsign.toUpperCase() === cs);
-        if (arrMatch && alt <= 10) {
+        if (arrMatch && alt <= 50) {
           // Set Landed immediately; fr24LandedLive signals it is provisional (may revert on go-around).
           const existing = flights.find(f => f.id === arrMatch.id);
           if (existing) {
