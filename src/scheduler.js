@@ -159,14 +159,17 @@ function autoAdvanceStatus(data, cfg, parts) {
       f.live = null;
     }
 
-    // Self-heal: clear bogus near-arrival statuses set too far before scheduled time.
+    // Self-heal: clear bogus near-arrival statuses set too far before estimated arrival.
     // "On Approach" means <10 min from home — impossible 20+ min before arrival.
-    // "Landed" means on the ground at EIDL — impossible before scheduled arrival time.
+    // "Landed" means on the ground at EIDL — impossible before arrival time.
     // "En Route" is NOT included: a genuine Dublin→Donegal flight IS En Route 50 min
     // before the 14:00 arrival (it departs ~13:10). Only proximity-derived near-home
     // statuses can be safely self-healed this way.
+    // Use estTime when available — an early-arriving flight (estTime < scheduled)
+    // would be wrongly self-healed if we compared against scheduled time alone.
     // Runs before the f.live guard so it fires even when the bad ADS-B match left f.live set.
-    if (f.type === 'arrival' && now < t - 20 &&
+    const selfHealRef = toMinutes(f.estTime) ?? t;
+    if (f.type === 'arrival' && now < selfHealRef - 20 &&
         (f.status === 'On Approach' || f.status === 'Landed')) {
       f.status = 'Scheduled';
       f.live   = null;
