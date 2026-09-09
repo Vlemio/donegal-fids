@@ -613,10 +613,20 @@ app.get('/api/flights', async (req, res) => {
   // is the heartbeat callers should use to judge sync freshness.
   let lastTick = lastTickAt;
   if (!lastTick) lastTick = await kv.getLastTick();
+  // For En Route arrivals running late, surface "Delayed" to the board.
+  // Stored status stays "En Route" so FR24 transitions work correctly;
+  // the display just reflects the delay. Threshold: 5 min late on estimated arrival.
+  const displayFlights = data.flights.filter(f => !f.suppressed).map(f => {
+    if (f.status === 'En Route' && f.type === 'arrival' && f.estTime && f.time) {
+      const delayMins = (_hhmToMins(f.estTime) ?? 0) - (_hhmToMins(f.time) ?? 0);
+      if (delayMins >= 5) return { ...f, status: 'Delayed' };
+    }
+    return f;
+  });
   res.json({
     ...data,
     lastTick: lastTick || null,
-    flights: data.flights.filter(f => !f.suppressed),
+    flights: displayFlights,
     config: { display: cfg.display, airport: cfg.airport },
   });
 });
