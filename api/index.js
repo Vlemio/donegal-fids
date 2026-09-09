@@ -619,7 +619,7 @@ app.get('/api/flights', async (req, res) => {
   const displayFlights = data.flights.filter(f => !f.suppressed).map(f => {
     if (f.status === 'En Route' && f.type === 'arrival' && f.estTime && f.time) {
       const delayMins = (_hhmToMins(f.estTime) ?? 0) - (_hhmToMins(f.time) ?? 0);
-      if (delayMins >= 5) return { ...f, status: 'Delayed' };
+      if (delayMins >= 30) return { ...f, status: 'Delayed' };
     }
     return f;
   });
