@@ -613,14 +613,16 @@ app.get('/api/flights', async (req, res) => {
   // is the heartbeat callers should use to judge sync freshness.
   let lastTick = lastTickAt;
   if (!lastTick) lastTick = await kv.getLastTick();
-  // For En Route arrivals running late, surface "Delayed" to the board.
-  // Stored status stays "En Route" so FR24 transitions work correctly;
-  // the display just reflects the delay. Threshold: 5 min late on estimated arrival.
+  // When estimated time is 30+ min after scheduled, surface Delayed on the board
+  // regardless of clock-based status. Stored status is unchanged so FR24 transitions
+  // keep working. Applies to: En Route arrivals + pre-departure departures (On Time/Scheduled).
+  const PRE_DEP = new Set(['Scheduled', 'On Time']);
   const displayFlights = data.flights.filter(f => !f.suppressed).map(f => {
-    if (f.status === 'En Route' && f.type === 'arrival' && f.estTime && f.time) {
-      const delayMins = (_hhmToMins(f.estTime) ?? 0) - (_hhmToMins(f.time) ?? 0);
-      if (delayMins >= 30) return { ...f, status: 'Delayed' };
-    }
+    if (!f.estTime || !f.time) return f;
+    const delayMins = (_hhmToMins(f.estTime) ?? 0) - (_hhmToMins(f.time) ?? 0);
+    if (delayMins < 30) return f;
+    if (f.type === 'arrival'   && f.status === 'En Route')    return { ...f, status: 'Delayed' };
+    if (f.type === 'departure' && PRE_DEP.has(f.status))      return { ...f, status: 'Delayed' };
     return f;
   });
   res.json({
