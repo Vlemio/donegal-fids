@@ -319,12 +319,17 @@ function cleanupOld(data, cfg, parts) {
     const landedRef = (f.type === 'arrival' && f.status === 'Landed')
       ? (toMinutes(f.landedAt) ?? toMinutes(f.estTime) ?? t)
       : t;
+    // For delayed/approaching arrivals use estTime when it's later than scheduled —
+    // a 3-hour tech delay would otherwise suppress the flight 90 min after the
+    // original scheduled time, long before the aircraft arrives.
+    const estT = (f.type === 'arrival' && f.estTime) ? (toMinutes(f.estTime) ?? t) : t;
+    const arrivalRef = Math.max(t, estT);
     const shouldSuppress =
-      (f.type === 'departure' && f.status === 'Departed'    && parts.minutes > t       + depKeep) ||
-      (f.type === 'departure' && f.status === 'Delayed'     && parts.minutes > t       + 180)    ||
-      (f.type === 'arrival'   && f.status === 'Landed'      && parts.minutes > landedRef + arrKeep) ||
-      (f.type === 'arrival'   && f.status === 'Delayed'     && parts.minutes > t       + 90)     ||
-      (f.type === 'arrival'   && f.status === 'On Approach' && parts.minutes > t       + 120)    ||
+      (f.type === 'departure' && f.status === 'Departed'    && parts.minutes > t          + depKeep) ||
+      (f.type === 'departure' && f.status === 'Delayed'     && parts.minutes > t          + 180)     ||
+      (f.type === 'arrival'   && f.status === 'Landed'      && parts.minutes > landedRef  + arrKeep) ||
+      (f.type === 'arrival'   && f.status === 'Delayed'     && parts.minutes > arrivalRef + 90)      ||
+      (f.type === 'arrival'   && f.status === 'On Approach' && parts.minutes > arrivalRef + 120)     ||
       (f.status === 'Cancelled' && parts.minutes > t + 120) ||
       (f.status === 'Diverted'  && parts.minutes > t + 120);
 
