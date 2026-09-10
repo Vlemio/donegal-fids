@@ -1,7 +1,7 @@
 /* Donegal FIDS — Control Panel */
 
-const DEP_STATUSES = ['Scheduled', 'On Time', 'Go to Security', 'Departed', 'Cancelled'];
-const ARR_STATUSES = ['Scheduled', 'On Time', 'On Approach', 'Landed', 'Diverted', 'Cancelled'];
+const DEP_STATUSES = ['Scheduled', 'On Time', 'Delayed', 'Go to Security', 'Departed', 'Cancelled'];
+const ARR_STATUSES = ['Scheduled', 'On Time', 'Delayed', 'On Approach', 'Landed', 'Diverted', 'Cancelled'];
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const $ = id => document.getElementById(id);
@@ -107,9 +107,23 @@ function renderFlights(listId, flights) {
     });
   });
 
-  // Est time input
+  // Est time input — masked HH:MM (digits only, colon auto-inserted)
   c.querySelectorAll('.js-est').forEach(inp => {
-    inp.addEventListener('change', () => put(inp.dataset.id, { estTime: inp.value.trim() || null }));
+    inp.addEventListener('keydown', e => {
+      const allowed = ['Backspace','Delete','ArrowLeft','ArrowRight','Tab'];
+      if (!allowed.includes(e.key) && !/^\d$/.test(e.key)) e.preventDefault();
+    });
+    inp.addEventListener('input', () => {
+      let digits = inp.value.replace(/\D/g, '').slice(0, 4);
+      if (digits.length >= 3) digits = digits.slice(0, 2) + ':' + digits.slice(2);
+      inp.value = digits;
+    });
+    inp.addEventListener('change', () => {
+      const v = inp.value.trim();
+      const valid = /^\d{2}:\d{2}$/.test(v);
+      put(inp.dataset.id, { estTime: valid ? v : null });
+      if (!valid) inp.value = '';
+    });
   });
 }
 
