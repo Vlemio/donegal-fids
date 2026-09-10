@@ -323,11 +323,16 @@ function cleanupOld(data, cfg, parts) {
     // window is t+240 (4 h from scheduled) — covers tech delays without dispatch
     // needing to enter an estimate. Once the plane is actually flying (On Approach
     // or Landed) the normal tight timers kick in regardless.
-    const estT       = f.type === 'arrival' ? (toMinutes(f.estTime) ?? t) : t;
-    const delayedRef = f.type === 'arrival' ? Math.max(t, f.estTime ? estT : t + 150) : t;
+    const estT        = f.type === 'arrival' ? (toMinutes(f.estTime) ?? t) : t;
+    const delayedRef  = f.type === 'arrival' ? Math.max(t, f.estTime ? estT : t + 150) : t;
     const approachRef = Math.max(t, estT);
+    // For Departed departures use max(scheduled, estTime) so a delayed flight that
+    // departs 2+ h late isn't suppressed the moment it takes off.
+    const departedRef = f.type === 'departure'
+      ? Math.max(t, toMinutes(f.estTime) ?? t)
+      : t;
     const shouldSuppress =
-      (f.type === 'departure' && f.status === 'Departed'    && parts.minutes > t           + depKeep) ||
+      (f.type === 'departure' && f.status === 'Departed'    && parts.minutes > departedRef + depKeep) ||
       (f.type === 'departure' && f.status === 'Delayed'     && parts.minutes > t           + 180)     ||
       (f.type === 'arrival'   && f.status === 'Landed'      && parts.minutes > landedRef   + arrKeep) ||
       (f.type === 'arrival'   && f.status === 'Delayed'     && parts.minutes > delayedRef  + 90)      ||
