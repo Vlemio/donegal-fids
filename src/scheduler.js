@@ -319,18 +319,19 @@ function cleanupOld(data, cfg, parts) {
     const landedRef = (f.type === 'arrival' && f.status === 'Landed')
       ? (toMinutes(f.landedAt) ?? toMinutes(f.estTime) ?? t)
       : t;
-    // For delayed/approaching arrivals use estTime when it's later than scheduled.
-    // Without estTime (e.g. dispatch hasn't entered it yet) we add 150 min to the
-    // scheduled time so the effective suppression window becomes t+240 min (4 h),
-    // enough to survive most tech delays without vanishing from the board early.
-    const estT = (f.type === 'arrival' && f.estTime) ? (toMinutes(f.estTime) ?? t) : t + 150;
-    const arrivalRef = Math.max(t, estT);
+    // For Delayed arrivals: extend base by 150 min when no estTime so the effective
+    // window is t+240 (4 h from scheduled) — covers tech delays without dispatch
+    // needing to enter an estimate. Once the plane is actually flying (On Approach
+    // or Landed) the normal tight timers kick in regardless.
+    const estT       = f.type === 'arrival' ? (toMinutes(f.estTime) ?? t) : t;
+    const delayedRef = f.type === 'arrival' ? Math.max(t, f.estTime ? estT : t + 150) : t;
+    const approachRef = Math.max(t, estT);
     const shouldSuppress =
-      (f.type === 'departure' && f.status === 'Departed'    && parts.minutes > t          + depKeep) ||
-      (f.type === 'departure' && f.status === 'Delayed'     && parts.minutes > t          + 180)     ||
-      (f.type === 'arrival'   && f.status === 'Landed'      && parts.minutes > landedRef  + arrKeep) ||
-      (f.type === 'arrival'   && f.status === 'Delayed'     && parts.minutes > arrivalRef + 90)      ||
-      (f.type === 'arrival'   && f.status === 'On Approach' && parts.minutes > arrivalRef + 120)     ||
+      (f.type === 'departure' && f.status === 'Departed'    && parts.minutes > t           + depKeep) ||
+      (f.type === 'departure' && f.status === 'Delayed'     && parts.minutes > t           + 180)     ||
+      (f.type === 'arrival'   && f.status === 'Landed'      && parts.minutes > landedRef   + arrKeep) ||
+      (f.type === 'arrival'   && f.status === 'Delayed'     && parts.minutes > delayedRef  + 90)      ||
+      (f.type === 'arrival'   && f.status === 'On Approach' && parts.minutes > approachRef + 120)     ||
       (f.status === 'Cancelled' && parts.minutes > t + 120) ||
       (f.status === 'Diverted'  && parts.minutes > t + 120);
 
