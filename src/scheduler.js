@@ -319,10 +319,11 @@ function cleanupOld(data, cfg, parts) {
     const landedRef = (f.type === 'arrival' && f.status === 'Landed')
       ? (toMinutes(f.landedAt) ?? toMinutes(f.estTime) ?? t)
       : t;
-    // For delayed/approaching arrivals use estTime when it's later than scheduled —
-    // a 3-hour tech delay would otherwise suppress the flight 90 min after the
-    // original scheduled time, long before the aircraft arrives.
-    const estT = (f.type === 'arrival' && f.estTime) ? (toMinutes(f.estTime) ?? t) : t;
+    // For delayed/approaching arrivals use estTime when it's later than scheduled.
+    // Without estTime (e.g. dispatch hasn't entered it yet) we add 150 min to the
+    // scheduled time so the effective suppression window becomes t+240 min (4 h),
+    // enough to survive most tech delays without vanishing from the board early.
+    const estT = (f.type === 'arrival' && f.estTime) ? (toMinutes(f.estTime) ?? t) : t + 150;
     const arrivalRef = Math.max(t, estT);
     const shouldSuppress =
       (f.type === 'departure' && f.status === 'Departed'    && parts.minutes > t          + depKeep) ||
