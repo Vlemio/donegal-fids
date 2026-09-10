@@ -615,14 +615,16 @@ app.get('/api/flights', async (req, res) => {
   if (!lastTick) lastTick = await kv.getLastTick();
   // When estimated time is 30+ min after scheduled, surface Delayed on the board
   // regardless of clock-based status. Stored status is unchanged so FR24 transitions
-  // keep working. Applies to: En Route arrivals + pre-departure departures (On Time/Scheduled).
-  const PRE_DEP = new Set(['Scheduled', 'On Time']);
+  // keep working. Applies to pre-flight arrivals (Scheduled/On Time/En Route) and
+  // pre-departure departures (Scheduled/On Time).
+  const PRE_FLIGHT = new Set(['Scheduled', 'On Time', 'En Route']);
+  const PRE_DEP    = new Set(['Scheduled', 'On Time']);
   const displayFlights = data.flights.filter(f => !f.suppressed).map(f => {
     if (!f.estTime || !f.time) return f;
     const delayMins = (_hhmToMins(f.estTime) ?? 0) - (_hhmToMins(f.time) ?? 0);
     if (delayMins < 30) return f;
-    if (f.type === 'arrival'   && f.status === 'En Route')    return { ...f, status: 'Delayed' };
-    if (f.type === 'departure' && PRE_DEP.has(f.status))      return { ...f, status: 'Delayed' };
+    if (f.type === 'arrival'   && PRE_FLIGHT.has(f.status)) return { ...f, status: 'Delayed' };
+    if (f.type === 'departure' && PRE_DEP.has(f.status))    return { ...f, status: 'Delayed' };
     return f;
   });
   res.json({
