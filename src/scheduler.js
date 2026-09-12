@@ -334,6 +334,7 @@ function cleanupOld(data, cfg, parts) {
     const shouldSuppress =
       (f.type === 'departure' && f.status === 'Departed'    && parts.minutes > departedRef + depKeep) ||
       (f.type === 'departure' && f.status === 'Delayed'     && parts.minutes > t           + 180)     ||
+      (f.type === 'departure' && ['Scheduled','On Time'].includes(f.status) && parts.minutes > t + 240) ||
       (f.type === 'arrival'   && f.status === 'Landed'      && parts.minutes > landedRef   + arrKeep) ||
       (f.type === 'arrival'   && f.status === 'Delayed'     && parts.minutes > delayedRef  + 90)      ||
       (f.type === 'arrival'   && f.status === 'On Approach' && parts.minutes > approachRef + 120)     ||
