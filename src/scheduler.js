@@ -338,8 +338,10 @@ function cleanupOld(data, cfg, parts) {
       (f.type === 'arrival'   && f.status === 'Landed'      && parts.minutes > landedRef   + arrKeep) ||
       (f.type === 'arrival'   && f.status === 'Delayed'     && parts.minutes > delayedRef  + 90)      ||
       (f.type === 'arrival'   && f.status === 'On Approach' && parts.minutes > approachRef + 120)     ||
-      (f.status === 'Cancelled' && parts.minutes > t + 120) ||
-      (f.status === 'Diverted'  && parts.minutes > t + 120);
+      // Cancelled/Diverted: 2h window from the moment of the change (cancelledAt),
+      // falling back to scheduled time so old entries without the stamp still clear up.
+      (f.status === 'Cancelled' && parts.minutes > (f.cancelledAt ? localParts(cfg.display?.timezone || 'Europe/Dublin', new Date(f.cancelledAt)).minutes + 120 : t + 120)) ||
+      (f.status === 'Diverted'  && parts.minutes > (f.cancelledAt ? localParts(cfg.display?.timezone || 'Europe/Dublin', new Date(f.cancelledAt)).minutes + 120 : t + 120));
 
     if (shouldSuppress) {
       f.suppressed = true;

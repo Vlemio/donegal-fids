@@ -85,7 +85,8 @@ function normalise(flight) {
     locks: flight.locks && typeof flight.locks === 'object' ? flight.locks : {},
     live: flight.live || null,
     schedDate: flight.schedDate || null,
-    suppressed: flight.suppressed === true
+    suppressed: flight.suppressed === true,
+    cancelledAt: flight.cancelledAt || null,
   };
 }
 

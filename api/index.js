@@ -650,7 +650,18 @@ app.put('/api/flights/:id', async (req, res) => {
   const data = store.read();
   const idx  = data.flights.findIndex(f => f.id === req.params.id);
   if (idx < 0) return res.status(404).json({ error: 'not found' });
-  data.flights[idx] = store.normalise({ ...data.flights[idx], ...req.body, id: req.params.id });
+  const prev = data.flights[idx];
+  const body = { ...req.body };
+  // Stamp cancelledAt when transitioning into Cancelled/Diverted so cleanupOld
+  // can measure the 2-hour display window from the moment of the change, not
+  // from the scheduled time (a late cancellation would otherwise vanish immediately).
+  const TERMINAL = ['Cancelled', 'Diverted'];
+  if (TERMINAL.includes(body.status) && !TERMINAL.includes(prev.status)) {
+    body.cancelledAt = new Date().toISOString();
+  } else if (body.status && !TERMINAL.includes(body.status)) {
+    body.cancelledAt = null; // clear if status reverts (e.g. auto)
+  }
+  data.flights[idx] = store.normalise({ ...prev, ...body, id: req.params.id });
   store.write(data);
   await kv.saveFlights();
   res.json(data.flights[idx]);
