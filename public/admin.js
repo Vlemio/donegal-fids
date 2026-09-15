@@ -22,6 +22,63 @@ function slug(s) {
   return (s || '').toLowerCase().replace(/\s+/g, '').replace(/[^a-z]/g, '');
 }
 
+// ── Mode badge ────────────────────────────────────────────────────────────
+
+function updateModeBadge(flights) {
+  const badge = $('modeBadge');
+  if (!badge) return;
+  const total  = flights.length;
+  if (!total) { badge.textContent = ''; badge.className = 'mode-badge'; return; }
+  const manual = flights.filter(f => f.locks && f.locks.status).length;
+  let label, cls;
+  if (manual === 0)     { label = 'AUTO';   cls = 'mode-badge--auto'; }
+  else if (manual === total) { label = 'MANUAL'; cls = 'mode-badge--manual'; }
+  else                  { label = 'MIXED';  cls = 'mode-badge--mixed'; }
+  badge.textContent = label;
+  badge.className   = 'mode-badge ' + cls;
+}
+
+// ── Confirm dialog ────────────────────────────────────────────────────────
+
+function showConfirm(title, msg) {
+  return new Promise(resolve => {
+    $('confirmTitle').textContent = title;
+    $('confirmMsg').textContent   = msg;
+    const overlay = $('confirmModal');
+    overlay.classList.add('is-open');
+
+    function close(result) {
+      overlay.classList.remove('is-open');
+      $('confirmOk').removeEventListener('click', onOk);
+      $('confirmCancel').removeEventListener('click', onCancel);
+      overlay.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onEsc);
+      resolve(result);
+    }
+    const onOk      = () => close(true);
+    const onCancel  = () => close(false);
+    const onBackdrop = e => { if (e.target === overlay) close(false); };
+    const onEsc     = e => { if (e.key === 'Escape') close(false); };
+
+    $('confirmOk').addEventListener('click', onOk);
+    $('confirmCancel').addEventListener('click', onCancel);
+    overlay.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onEsc);
+  });
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────
+
+let _toastTimer;
+function showToast(msg, type = 'ok') {
+  const bar = $('toastBar');
+  bar.textContent = msg;
+  bar.className = 'toast-bar toast-bar--' + type;
+  bar.hidden = false;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { bar.hidden = true; }, 3000);
+}
+
 // ── Live board ────────────────────────────────────────────────────────────
 
 async function loadFlights() {
@@ -29,6 +86,7 @@ async function loadFlights() {
     const { flights = [] } = await apiFetch('/api/flights', { cache: 'no-store' }).then(r => r.json());
     renderFlights('depList', flights.filter(f => f.type === 'departure'));
     renderFlights('arrList', flights.filter(f => f.type === 'arrival'));
+    updateModeBadge(flights);
     $('lastUpdate').textContent = 'Updated ' + new Date().toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' });
   } catch (e) {
     $('lastUpdate').textContent = 'Update failed';
@@ -378,18 +436,23 @@ $('saveSched').addEventListener('click', saveSched);
 // ── Bulk lock / unlock ────────────────────────────────────────────────────
 
 async function bulkLock(locked) {
-  const label = locked ? 'manual' : 'auto';
+  const title = locked ? 'Switch to Manual?' : 'Switch to Auto?';
   const msg   = locked
-    ? 'Set ALL flights to Manual? The auto engine will stop updating statuses.'
-    : 'Set ALL flights back to Auto? The engine will resume updating statuses.';
-  if (!confirm(msg)) return;
+    ? 'All flights will be set to Manual. The auto engine will stop updating statuses.'
+    : 'All flights will be set to Auto. The engine will resume updating statuses.';
+  const confirmed = await showConfirm(title, msg);
+  if (!confirmed) return;
   const res = await apiFetch('/api/flights/lock-all', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ locked })
   }).then(r => r.json());
-  if (res.ok) setTimeout(loadFlights, 300);
-  else alert('Error: ' + (res.error || 'unknown'));
+  if (res.ok) {
+    showToast(locked ? 'All flights set to Manual' : 'All flights set to Auto', 'ok');
+    setTimeout(loadFlights, 300);
+  } else {
+    showToast('Error: ' + (res.error || 'unknown'), 'err');
+  }
 }
 
 $('btnManualAll').addEventListener('click', () => bulkLock(true));

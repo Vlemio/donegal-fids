@@ -25,7 +25,10 @@
     <!-- ─── 1. Live board ─────────────────────────────── -->
     <section class="panel">
       <div class="panel__head">
-        <h2 class="panel__title">✈ What's on the board</h2>
+        <div class="panel__head-left">
+          <h2 class="panel__title">✈ What's on the board</h2>
+          <span class="mode-badge" id="modeBadge"></span>
+        </div>
         <div class="panel__bulk">
           <button class="btn btn--sm btn--bulk-auto"   id="btnAutoAll">🔄 All Auto</button>
           <button class="btn btn--sm btn--bulk-manual" id="btnManualAll">🔒 All Manual</button>
@@ -56,6 +59,23 @@
     </section>
 
   </main>
+
+  <!-- ─── Modal: confirm dialog ───────────────────────── -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal-box modal-box--sm">
+      <div class="modal-head">
+        <h3 id="confirmTitle">Confirm</h3>
+      </div>
+      <p class="confirm-msg" id="confirmMsg"></p>
+      <div class="modal-foot">
+        <button class="btn btn--ghost" id="confirmCancel">Cancel</button>
+        <button class="btn btn--primary" id="confirmOk">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Toast bar ──────────────────────────────────── -->
+  <div class="toast-bar" id="toastBar" hidden></div>
 
   <!-- ─── Modal: schedule editor ──────────────────────── -->
   <div class="modal-overlay" id="modal">
@@ -116,6 +136,6 @@
     </div>
   </div>
 
-  <script src="admin.js?v=9"></script>
+  <script src="admin.js?v=10"></script>
 </body>
 </html>
