@@ -210,10 +210,7 @@ html, body {
   font-family: 'Barlow Condensed'; letter-spacing: 0.1em; text-transform: uppercase;
 }
 
-/* Column header overrides: Codeshare and Status labels in white on amber bar */
 .cell--status { display: flex; align-items: center; }
-.row--header .cell--code,
-.row--header .cell--status { color: var(--white); }
 
 /* ---------- Footer ---------- */
 .board__footer {
