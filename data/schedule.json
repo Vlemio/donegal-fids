@@ -104,8 +104,8 @@
       "airline": "Ryanair",
       "airlineCode": "FR",
       "city": "London Stansted",
-      "flightNo": "FR101",
-      "callsign": "RYR101",
+      "flightNo": "TST01",
+      "callsign": "TST01",
       "codeshare": [],
       "days": [4]
     },
@@ -116,8 +116,8 @@
       "airline": "British Airways",
       "airlineCode": "BA",
       "city": "London",
-      "flightNo": "BA303",
-      "callsign": "BAW303",
+      "flightNo": "TST02",
+      "callsign": "TST02",
       "codeshare": [],
       "days": [4]
     }
