@@ -117,21 +117,21 @@ html, body {
 
 .row {
   display: grid;
-  grid-template-columns: 1.1fr 1.9fr 1.7fr 1.2fr 1.9fr 1.7fr;
+  grid-template-columns: 1.1fr 1.9fr 2fr 1.2fr 1.3fr 1.8fr;
   align-items: center;
-  padding: 0 2.2vw;
-  height: 8vh;
+  padding: 0 1.4vw;
+  height: 9.5vh;
   border-bottom: 1px solid var(--line);
 }
 
 /* Column-header bar — the bright amber strip like real boards */
 .row--header {
-  height: 4.4vh;
+  height: 5vh;
   background: var(--amber);
   color: var(--ink);
   font-family: 'Barlow Condensed';
   font-weight: 700;
-  font-size: 1.9vh;
+  font-size: 2.3vh;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   border-bottom: none;
@@ -140,20 +140,20 @@ html, body {
 .table__body .row:nth-child(odd) { background: var(--bg-row-a); }
 .table__body .row:nth-child(even) { background: var(--bg-row-b); }
 
-.cell { font-size: 3vh; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cell { font-size: 3.8vh; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cell--time {
-  font-family: 'Barlow Condensed'; font-weight: 700; font-size: 3.6vh;
+  font-family: 'Barlow Condensed'; font-weight: 700; font-size: 4.4vh;
   font-variant-numeric: tabular-nums; color: var(--amber);
 }
 .cell--time .est {
-  display: block; font-size: 1.7vh; color: var(--green); font-weight: 700;
+  display: block; font-size: 2.1vh; color: var(--green); font-weight: 700;
   font-family: 'Barlow'; margin-top: -0.3vh; letter-spacing: 0.02em;
 }
 .cell--time .est--late      { color: var(--amber); }   /* 1–20 min late */
 .cell--time .est--very-late { color: var(--red); }      /* >20 min late  */
 .cell--airline { display: flex; align-items: center; gap: 0.7vw; color: var(--text); }
 .airline-badge {
-  font-family: 'Barlow Condensed'; font-weight: 700; font-size: 1.9vh;
+  font-family: 'Barlow Condensed'; font-weight: 700; font-size: 2.4vh;
   background: var(--amber); color: var(--ink);
   border-radius: 0.4vh; padding: 0.2vh 0.7vw; letter-spacing: 0.05em;
 }
@@ -163,17 +163,17 @@ html, body {
   display: flex; align-items: center;
 }
 .cell--code {
-  font-size: 2.6vh; color: var(--text-dim); font-family: 'Barlow Condensed'; font-weight: 600;
+  font-size: 3.2vh; color: var(--text-dim); font-family: 'Barlow Condensed'; font-weight: 600;
   letter-spacing: 0.06em; display: flex; align-items: center;
 }
 
 /* ---------- Status (colour-coded text, board-style) ---------- */
 .status {
   display: inline-flex; align-items: center; gap: 0.6vw;
-  font-family: 'Barlow Condensed'; font-weight: 700; font-size: 2.6vh;
+  font-family: 'Barlow Condensed'; font-weight: 700; font-size: 3.4vh;
   letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap;
 }
-.status::before { content: ''; width: 1vh; height: 1vh; border-radius: 50%; background: currentColor; flex: none; }
+.status::before { content: ''; width: 1.1vh; height: 1.1vh; border-radius: 50%; background: currentColor; flex: none; }
 
 .status--scheduled,
 .status--checkin  { color: var(--text-dim); }
