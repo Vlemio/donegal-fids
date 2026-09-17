@@ -96,6 +96,42 @@
       "callsign": "LOG204",
       "codeshare": [],
       "days": [0]
+    },
+    {
+      "_id": "test-arr-1",
+      "type": "arrival",
+      "time": "15:30",
+      "airline": "Ryanair",
+      "airlineCode": "FR",
+      "city": "London Stansted",
+      "flightNo": "FR101",
+      "callsign": "RYR101",
+      "codeshare": [],
+      "days": [4]
+    },
+    {
+      "_id": "test-arr-2",
+      "type": "arrival",
+      "time": "17:00",
+      "airline": "easyJet",
+      "airlineCode": "U2",
+      "city": "Manchester",
+      "flightNo": "EZY202",
+      "callsign": "EZY202",
+      "codeshare": [],
+      "days": [4]
+    },
+    {
+      "_id": "test-arr-3",
+      "type": "arrival",
+      "time": "18:15",
+      "airline": "British Airways",
+      "airlineCode": "BA",
+      "city": "London",
+      "flightNo": "BA303",
+      "callsign": "BAW303",
+      "codeshare": [],
+      "days": [4]
     }
   ]
 }
