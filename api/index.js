@@ -256,6 +256,10 @@ function isInFastPollWindow(data, cfg) {
     if (f.suppressed) continue;
     if (['Landed', 'Departed', 'Cancelled', 'Diverted'].includes(f.status)) continue;
     if (f.type === 'arrival') {
+      // On Approach: always fast-poll — the aircraft may land any minute, and if it is
+      // holding we need live-positions to refresh the ETA. Don't let the slow poll
+      // cadence miss a landing just because the ETA was updated beyond the 10-min window.
+      if (f.status === 'On Approach') return true;
       const estMin  = _hhmToMins(f.estTime);
       const schedMin = _hhmToMins(f.time);
       // When we have an API-estimated ETA, use the tighter 10-min window.

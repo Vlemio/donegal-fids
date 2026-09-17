@@ -230,16 +230,28 @@ async function fetchFlights(cfg, pendingDeps = [], onApproachArrivals = [], goAr
         }
 
         const arrMatch = liveArrs.find(a => a.callsign.toUpperCase() === cs);
-        if (arrMatch && alt <= 50) {
-          // Set Landed immediately; fr24LandedLive signals it is provisional (may revert on go-around).
-          const existing = flights.find(f => f.id === arrMatch.id);
-          if (existing) {
-            existing.status = 'Landed'; existing.fr24Confirmed = true; existing.fr24LandedLive = true;
-            if (pos.hex) existing.fr24hex = pos.hex.toLowerCase();
-          } else {
-            flights.push({ id: arrMatch.id, type: 'arrival', flightNo: arrMatch.flightNo,
-              callsign: cs, fr24hex: (pos.hex || '').toLowerCase(), fr24Confirmed: true,
-              status: 'Landed', fr24LandedLive: true });
+        if (arrMatch) {
+          if (alt <= 50) {
+            // Set Landed immediately; fr24LandedLive signals it is provisional (may revert on go-around).
+            const existing = flights.find(f => f.id === arrMatch.id);
+            if (existing) {
+              existing.status = 'Landed'; existing.fr24Confirmed = true; existing.fr24LandedLive = true;
+              if (pos.hex) existing.fr24hex = pos.hex.toLowerCase();
+            } else {
+              flights.push({ id: arrMatch.id, type: 'arrival', flightNo: arrMatch.flightNo,
+                callsign: cs, fr24hex: (pos.hex || '').toLowerCase(), fr24Confirmed: true,
+                status: 'Landed', fr24LandedLive: true });
+            }
+          } else if (pos.eta) {
+            // Still airborne (hold or delayed approach) — refresh ETA from live data so the
+            // board shows the real new estimate instead of the stale original.
+            const etaMs = parseUtcMs(pos.eta);
+            if (etaMs != null && !isNaN(etaMs)) {
+              const newEta = utcToLocalHHMM(etaMs, tz);
+              const existing = flights.find(f => f.id === arrMatch.id);
+              if (existing) existing.estTime = newEta;
+              else flights.push({ id: arrMatch.id, type: 'arrival', flightNo: arrMatch.flightNo, estTime: newEta });
+            }
           }
         }
 
