@@ -735,20 +735,33 @@ app.post('/api/schedule', async (req, res) => {
 });
 
 app.delete('/api/schedule/by-id/:id', async (req, res) => {
-  const data = scheduler.readSchedule();
-  data.recurring = data.recurring.filter(e => e._id !== req.params.id);
-  scheduler.writeSchedule(data);
-  await kv.saveSchedule();
+  const schedData = scheduler.readSchedule();
+  const removed = schedData.recurring.filter(e => e._id === req.params.id);
+  schedData.recurring = schedData.recurring.filter(e => e._id !== req.params.id);
+  scheduler.writeSchedule(schedData);
+  // Also remove any materialised flights for deleted entries
+  const flightData = store.read();
+  for (const entry of removed) {
+    const flightId = (entry.type === 'arrival' ? 'ARR-' : 'DEP-') + (entry.flightNo || '').toUpperCase();
+    flightData.flights = flightData.flights.filter(f => f.id !== flightId);
+  }
+  store.write(flightData);
+  await Promise.all([kv.saveSchedule(), kv.saveFlights()]);
   res.json({ ok: true });
 });
 
 app.delete('/api/schedule/:type/:flightNo', async (req, res) => {
-  const data = scheduler.readSchedule();
-  data.recurring = data.recurring.filter(
+  const schedData = scheduler.readSchedule();
+  schedData.recurring = schedData.recurring.filter(
     e => !(e.type === req.params.type && e.flightNo === req.params.flightNo.toUpperCase()),
   );
-  scheduler.writeSchedule(data);
-  await kv.saveSchedule();
+  scheduler.writeSchedule(schedData);
+  // Also remove the materialised flight from the active store
+  const flightId = (req.params.type === 'arrival' ? 'ARR-' : 'DEP-') + req.params.flightNo.toUpperCase();
+  const flightData = store.read();
+  flightData.flights = flightData.flights.filter(f => f.id !== flightId);
+  store.write(flightData);
+  await Promise.all([kv.saveSchedule(), kv.saveFlights()]);
   res.json({ ok: true });
 });
 
