@@ -214,7 +214,7 @@ html, body {
 .row--header .cell--code,
 .row--header .cell--airline,
 .row--header .cell--city,
-.row--header .cell--flight { color: var(--ink); font-size: 2.3vh; }
+.row--header .cell--flight { color: var(--ink); }
 
 /* ---------- Footer ---------- */
 .board__footer {
