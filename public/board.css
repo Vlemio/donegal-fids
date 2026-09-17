@@ -211,7 +211,10 @@ html, body {
 }
 
 .cell--status { display: flex; align-items: center; }
-.row--header .cell--code { color: var(--ink); }
+.row--header .cell--code,
+.row--header .cell--airline,
+.row--header .cell--city,
+.row--header .cell--flight { color: var(--ink); }
 
 /* ---------- Footer ---------- */
 .board__footer {

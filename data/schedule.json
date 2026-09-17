@@ -97,29 +97,5 @@
       "codeshare": [],
       "days": [0]
     },
-    {
-      "_id": "test-arr-1",
-      "type": "arrival",
-      "time": "19:00",
-      "airline": "Ryanair",
-      "airlineCode": "FR",
-      "city": "London Stansted",
-      "flightNo": "TST01",
-      "callsign": "TST01",
-      "codeshare": [],
-      "days": [4]
-    },
-    {
-      "_id": "test-arr-2",
-      "type": "arrival",
-      "time": "21:30",
-      "airline": "British Airways",
-      "airlineCode": "BA",
-      "city": "London",
-      "flightNo": "TST02",
-      "callsign": "TST02",
-      "codeshare": [],
-      "days": [4]
-    }
   ]
 }
