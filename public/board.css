@@ -117,7 +117,7 @@ html, body {
 
 .row {
   display: grid;
-  grid-template-columns: 1.1fr 1.9fr 2fr 1.2fr 1.3fr 1.8fr;
+  grid-template-columns: 1.1fr 1.7fr 1.6fr 1.2fr 1.5fr 1.7fr;
   align-items: center;
   padding: 0 1.4vw;
   height: 9.5vh;
