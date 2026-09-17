@@ -100,7 +100,7 @@
     {
       "_id": "test-arr-1",
       "type": "arrival",
-      "time": "15:30",
+      "time": "19:00",
       "airline": "Ryanair",
       "airlineCode": "FR",
       "city": "London Stansted",
@@ -112,19 +112,7 @@
     {
       "_id": "test-arr-2",
       "type": "arrival",
-      "time": "17:00",
-      "airline": "easyJet",
-      "airlineCode": "U2",
-      "city": "Manchester",
-      "flightNo": "EZY202",
-      "callsign": "EZY202",
-      "codeshare": [],
-      "days": [4]
-    },
-    {
-      "_id": "test-arr-3",
-      "type": "arrival",
-      "time": "18:15",
+      "time": "21:30",
       "airline": "British Airways",
       "airlineCode": "BA",
       "city": "London",
