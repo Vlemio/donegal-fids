@@ -50,34 +50,34 @@ html, body {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  padding: 1.6vh 2.2vw 1.2vh;
+  padding: 1.8vh 1.4vw 1.4vh;
   border-bottom: 2px solid var(--amber);
 }
 
 .brand { display: flex; align-items: center; gap: 1vw; }
 .brand__logo-wrap {
-  height: 5.5vh;
-  width: 5.5vh;
+  height: 7vh;
+  width: 7vh;
   overflow: hidden;
   flex: none;
   position: relative;
 }
 .brand__logo {
   position: absolute;
-  height: 22vh;
+  height: 27vh;
   width: auto;
   top: 50%;
   left: 50%;
   transform: translate(-49%, -48%);
 }
 .brand__name { display: flex; flex-direction: column; line-height: 1.05; }
-.brand__irish { font-family: 'Barlow Condensed'; font-weight: 600; font-size: 2.2vh; color: var(--text); }
-.brand__en { font-size: 1.35vh; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-dim); }
+.brand__irish { font-family: 'Barlow Condensed'; font-weight: 600; font-size: 2.8vh; color: var(--text); }
+.brand__en { font-size: 1.7vh; letter-spacing: 0.22em; text-transform: uppercase; color: var(--text-dim); }
 
 .board__title {
   font-family: 'Barlow Condensed';
   font-weight: 700;
-  font-size: 4vh;
+  font-size: 5vh;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   text-align: center;
@@ -88,12 +88,12 @@ html, body {
 .clock__time {
   font-family: 'Barlow Condensed';
   font-weight: 700;
-  font-size: 5vh;
+  font-size: 6.2vh;
   font-variant-numeric: tabular-nums;
   color: var(--amber);
   letter-spacing: 0.02em;
 }
-.clock__date { font-size: 1.4vh; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); margin-top: 0.4vh; }
+.clock__date { font-size: 1.8vh; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim); margin-top: 0.4vh; }
 
 /* ---------- Panels ---------- */
 .panel { display: flex; flex-direction: column; min-height: 0; }
@@ -102,14 +102,14 @@ html, body {
   display: flex;
   align-items: center;
   gap: 1vw;
-  padding: 1vh 2.2vw 0.6vh;
+  padding: 1.2vh 1.4vw 0.8vh;
 }
-.panel__icon { height: 3.4vh; width: auto; flex: none; }
+.panel__icon { height: 4.2vh; width: auto; flex: none; }
 .panel__label {
-  font-family: 'Barlow Condensed'; font-weight: 700; font-size: 3vh;
+  font-family: 'Barlow Condensed'; font-weight: 700; font-size: 3.8vh;
   letter-spacing: 0.06em; text-transform: uppercase; color: var(--text);
 }
-.panel__label--irish { font-size: 3vh; color: var(--text-dim); font-weight: 500; }
+.panel__label--irish { font-size: 3.8vh; color: var(--text-dim); font-weight: 500; }
 
 /* ---------- Table ---------- */
 .table { flex: 1; display: flex; flex-direction: column; min-height: 0; }
