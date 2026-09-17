@@ -173,7 +173,7 @@ html, body {
   font-family: 'Barlow Condensed'; font-weight: 700; font-size: 3.4vh;
   letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap;
 }
-.status::before { content: ''; width: 1.1vh; height: 1.1vh; border-radius: 50%; background: currentColor; flex: none; }
+.status::before { display: none; }
 
 .status--scheduled,
 .status--checkin  { color: var(--text-dim); }
@@ -209,6 +209,7 @@ html, body {
 }
 
 /* Column header overrides: Codeshare and Status labels in white on amber bar */
+.cell--status { display: flex; align-items: center; }
 .row--header .cell--code,
 .row--header .cell--status { color: var(--white); }
 
