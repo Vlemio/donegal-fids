@@ -165,7 +165,7 @@ html, body {
   display: flex; align-items: center;
 }
 .cell--code {
-  font-size: 3.2vh; color: var(--text-dim); font-family: 'Barlow Condensed'; font-weight: 600;
+  font-size: 3.6vh; color: var(--text-dim); font-family: 'Barlow Condensed'; font-weight: 600;
   letter-spacing: 0.06em; display: flex; align-items: center;
 }
 
@@ -214,7 +214,7 @@ html, body {
 .row--header .cell--code,
 .row--header .cell--airline,
 .row--header .cell--city,
-.row--header .cell--flight { color: var(--ink); }
+.row--header .cell--flight { color: var(--ink); font-size: 2.3vh; }
 
 /* ---------- Footer ---------- */
 .board__footer {
