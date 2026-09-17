@@ -37,10 +37,14 @@ function _ensureFlightsForDate(data, schedule, date, dow) {
     if (existing) {
       // Worker suppressed this flight explicitly for this date — respect it.
       if (existing.suppressed && existing.schedDate === date) continue;
-      // Already the correct date — restore codeshares if API wiped them.
+      // Already the correct date — sync schedule-derived fields so edits take effect immediately.
       if (existing.schedDate === date) {
-        if (Array.isArray(s.codeshare) && s.codeshare.length > 0 &&
-            (!Array.isArray(existing.codeshare) || existing.codeshare.length === 0)) {
+        existing.time        = s.time        || existing.time;
+        existing.airline     = s.airline     || existing.airline;
+        existing.airlineCode = s.airlineCode || existing.airlineCode;
+        existing.city        = s.city        || existing.city;
+        existing.callsign    = (s.callsign   || existing.callsign || '').toUpperCase();
+        if (Array.isArray(s.codeshare) && s.codeshare.length > 0) {
           existing.codeshare = s.codeshare.map((c) => String(c).toUpperCase());
         }
         continue;

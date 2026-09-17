@@ -138,6 +138,7 @@ function renderFlights(listId, flights) {
           <input class="est-input js-est" type="text" placeholder="--:--"
             value="${f.estTime || ''}" data-id="${f.id}" maxlength="5">
         </label>
+        <button class="btn btn--sm btn--danger js-fdel" data-id="${f.id}" title="Remove from board">✕</button>
       </div>
     </div>`;
   }).join('');
@@ -191,6 +192,14 @@ async function put(id, body) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
   });
+}
+
+async function deleteFlight(id) {
+  const confirmed = await showConfirm('Remove flight?', 'This removes the flight from the board immediately. If it is in the timetable it will reappear tomorrow.');
+  if (!confirmed) return;
+  const res = await apiFetch(`/api/flights/${id}`, { method: 'DELETE' }).then(r => r.json());
+  if (res.ok) { showToast('Flight removed from board', 'ok'); setTimeout(loadFlights, 300); }
+  else showToast('Error: ' + (res.error || 'unknown'), 'err');
 }
 
 // ── Schedule ──────────────────────────────────────────────────────────────
@@ -424,6 +433,14 @@ $('schedContent').addEventListener('click', e => {
   if (editBtn) openModal(editBtn.dataset.key);
   if (delBtn)  delSched(delBtn.dataset.key);
   if (addBtn)  openModal('', { code: addBtn.dataset.code });
+});
+
+// Event delegation for active flight delete buttons
+['depList', 'arrList'].forEach(listId => {
+  $(listId).addEventListener('click', e => {
+    const delBtn = e.target.closest('.js-fdel');
+    if (delBtn) deleteFlight(delBtn.dataset.id);
+  });
 });
 
 // Modal close — X, Cancel, backdrop click, Escape
