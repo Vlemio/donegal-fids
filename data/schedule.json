@@ -62,18 +62,6 @@
       "days": [3]
     },
     {
-      "_id": "lm203-arr-sat",
-      "type": "arrival",
-      "time": "15:25",
-      "airline": "Loganair",
-      "airlineCode": "LM",
-      "city": "Glasgow",
-      "flightNo": "LM203",
-      "callsign": "LOG203",
-      "codeshare": [],
-      "days": [6]
-    },
-    {
       "_id": "lm203-arr-sun",
       "type": "arrival",
       "time": "18:45",
@@ -96,18 +84,6 @@
       "callsign": "LOG204",
       "codeshare": [],
       "days": [3]
-    },
-    {
-      "_id": "lm204-dep-sat",
-      "type": "departure",
-      "time": "15:55",
-      "airline": "Loganair",
-      "airlineCode": "LM",
-      "city": "Glasgow",
-      "flightNo": "LM204",
-      "callsign": "LOG204",
-      "codeshare": [],
-      "days": [6]
     },
     {
       "_id": "lm204-dep-sun",
