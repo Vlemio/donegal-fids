@@ -145,10 +145,6 @@ async function poll() {
 
 /* ---------- Kiosk guards ---------- */
 document.addEventListener('contextmenu', e => e.preventDefault());
-document.addEventListener('keydown', e => {
-  // Block F5 (refresh), F11 (toggle fullscreen), Alt+F4, browser shortcuts
-  if (e.key === 'F5' || e.key === 'F11' || (e.altKey && e.key === 'F4')) e.preventDefault();
-});
 
 /* ---------- Boot ---------- */
 tickClock();
