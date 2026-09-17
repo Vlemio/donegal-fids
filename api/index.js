@@ -906,8 +906,13 @@ app.post('/api/auth', async (req, res) => {
     return res.redirect(302, `/login.html?error=locked&mins=${mins}`);
   }
 
-  if (pw && username === 'donegal' && timingSafeStringEqual(password, pw)) {
+  const pw2 = process.env.FIDS_PASSWORD_2;
+  const validPassword = (pw && timingSafeStringEqual(password, pw)) ||
+                        (pw2 && timingSafeStringEqual(password, pw2));
+  if (username === 'donegal' && validPassword) {
     await clearLoginFailRecord(ip);
+    // Always sign the session token with the primary password so both users
+    // get a token that verifyToken (which uses FIDS_PASSWORD) accepts.
     res.setHeader('Set-Cookie',
       `fids_auth=${issueToken(pw)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=604800`);
     return res.redirect(302, '/');
