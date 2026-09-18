@@ -70,6 +70,8 @@ export default async function middleware(request) {
   if (pathname === '/api/debug/fr24') return;
   if (pathname === '/api/auth') return;
   if (/^\/api\/flights\/[^/]+\/block$/.test(pathname) && request.method === 'POST') return;
+  // PUT /api/flights/:id with TICK_SECRET Bearer — for internal status resets.
+  if (/^\/api\/flights\/[^/]+$/.test(pathname) && request.method === 'PUT') return;
   if (pathname === '/login.html' || pathname === '/login') return;
 
   // Check session cookie
