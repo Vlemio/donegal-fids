@@ -347,6 +347,13 @@ async function openModal(key, defaults = {}) {
   $('f_airlineCode').placeholder = ph.airlineCode;
   $('f_callsign').placeholder    = ph.callsign;
 
+  // Lock airline fields when adding a new flight — the section determines the carrier.
+  const isNew = !key;
+  $('f_airline').readOnly    = isNew;
+  $('f_airlineCode').readOnly = isNew;
+  $('f_airline').closest('.field').classList.toggle('field--locked', isNew);
+  $('f_airlineCode').closest('.field').classList.toggle('field--locked', isNew);
+
   // Detect unknown flights on blur
   const onCheck = () => checkFlightDetection(recurring);
   ['f_flightNo', 'f_callsign'].forEach(id => {
