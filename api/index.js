@@ -684,9 +684,24 @@ app.put('/api/flights/:id', async (req, res) => {
 app.delete('/api/flights/:id', async (req, res) => {
   const data = store.read();
   data.flights = data.flights.filter(f => f.id !== req.params.id);
+  // Prevent FR24/API from re-adding this flight on the next tick.
+  if (!Array.isArray(data.blockedIds)) data.blockedIds = [];
+  if (!data.blockedIds.includes(req.params.id)) data.blockedIds.push(req.params.id);
   store.write(data);
   await kv.saveFlights();
   res.json({ ok: true });
+});
+
+// Block a flight ID from being re-added by the API (even if not currently in the store).
+app.post('/api/flights/:id/block', async (req, res) => {
+  const data = store.read();
+  // Also remove it from active flights if present.
+  data.flights = data.flights.filter(f => f.id !== req.params.id);
+  if (!Array.isArray(data.blockedIds)) data.blockedIds = [];
+  if (!data.blockedIds.includes(req.params.id)) data.blockedIds.push(req.params.id);
+  store.write(data);
+  await kv.saveFlights();
+  res.json({ ok: true, blocked: req.params.id });
 });
 
 app.post('/api/flights/:id/lock', async (req, res) => {

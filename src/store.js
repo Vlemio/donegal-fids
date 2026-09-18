@@ -120,12 +120,14 @@ function mergeApi(apiFlights) {
   const data = read();
   const byId = new Map(data.flights.map((f) => [f.id, f]));
   const today = todayDateStr();
+  const blocked = new Set(data.blockedIds || []);
 
   for (const incoming of apiFlights) {
     const flight = normalise({ ...incoming, source: 'api' });
     const existing = byId.get(flight.id);
 
     if (!existing) {
+      if (blocked.has(flight.id)) continue; // don't re-add explicitly deleted flights
       byId.set(flight.id, flight);
       continue;
     }
