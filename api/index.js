@@ -672,8 +672,8 @@ app.put('/api/flights/:id', async (req, res) => {
   if (!updated.live) {
     const a = _hhmToMins(updated.time), b = _hhmToMins(updated.estTime);
     const delay = (a != null && b != null) ? b - a : 0;
-    updated.estLate     = delay > 0 && delay <= 20;
-    updated.estVeryLate = delay > 20;
+    updated.estLate     = delay > 0 && delay <= 30;
+    updated.estVeryLate = delay > 30;
   }
   data.flights[idx] = updated;
   store.write(data);

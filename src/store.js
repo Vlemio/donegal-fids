@@ -193,8 +193,8 @@ function mergeApi(apiFlights) {
     // signal we have, so derive the amber/red state from it here.
     if (!existing.live) {
       const delay = apiDelayMins(existing.time, existing.estTime);
-      existing.estLate     = delay > 0 && delay <= 20;
-      existing.estVeryLate = delay > 20;
+      existing.estLate     = delay > 0 && delay <= 30;
+      existing.estVeryLate = delay > 30;
     }
   }
 

@@ -513,8 +513,8 @@ function track(data, cfg, states, nowDate = new Date()) {
             const inFlight = f.status === 'Departed' || f.status === 'En Route' || f.status === 'On Approach';
             const delay = delayMinutes(f.time, eta);
             f.estTime = (inFlight || delay > 0) ? eta : null;
-            f.estLate     = delay > 0 && delay <= 20; // amber: 1–20 min late
-            f.estVeryLate = delay > 20;               // red: >20 min late
+            f.estLate     = delay > 0 && delay <= 30; // amber: 1–30 min late
+            f.estVeryLate = delay > 30;               // red: >30 min late
           }
         } else {
           f.estTime = null;
