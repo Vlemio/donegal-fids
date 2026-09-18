@@ -598,11 +598,14 @@ function isActiveWindow(data, cfg, nowDate = new Date()) {
     if (f.status === 'Cancelled') return false;
     // Delayed flights keep the window open indefinitely — still expected.
     if (f.status === 'Delayed') return true;
+    // On Approach: plane is imminent — keep window open until landed.
+    if (f.status === 'On Approach') return true;
     // Any flight with active ADS-B tracking keeps the window open — we need
     // to keep polling to confirm landing, update ETA, or detect a stale match.
     // Without this, an 'En Route' flight past t+after would stop being polled.
     if (f.live) return true;
-    const t = toMinutes(f.time);
+    // Use estTime when available so a delayed flight's window stays open.
+    const t = toMinutes(f.estTime || f.time);
     return t != null && now >= t - before && now <= t + after;
   });
 }
