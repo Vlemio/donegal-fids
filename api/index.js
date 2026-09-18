@@ -665,7 +665,17 @@ app.put('/api/flights/:id', async (req, res) => {
   } else if (body.status && !TERMINAL.includes(body.status)) {
     body.cancelledAt = null; // clear if status reverts (e.g. auto)
   }
-  data.flights[idx] = store.normalise({ ...prev, ...body, id: req.params.id });
+  const updated = store.normalise({ ...prev, ...body, id: req.params.id });
+  // Recompute delay-colour flags whenever estTime is set manually.
+  // tracker.js owns these when the flight is live (ADS-B); otherwise we derive
+  // them here so the amber/red colour shows immediately on manual saves.
+  if (!updated.live) {
+    const a = _hhmToMins(updated.time), b = _hhmToMins(updated.estTime);
+    const delay = (a != null && b != null) ? b - a : 0;
+    updated.estLate     = delay > 0 && delay <= 20;
+    updated.estVeryLate = delay > 20;
+  }
+  data.flights[idx] = updated;
   store.write(data);
   await kv.saveFlights();
   res.json(data.flights[idx]);
