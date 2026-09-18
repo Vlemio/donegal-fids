@@ -102,6 +102,10 @@ app.use((req, res, next) => {
 
   if (PUBLIC_ROUTES.some(r => r.m === req.method && r.p === req.path)) return next();
 
+  // Internal tools (block flight, etc.) may authenticate with the TICK_SECRET Bearer token.
+  const secret = process.env.TICK_SECRET;
+  if (secret && timingSafeStringEqual(req.headers.authorization || '', `Bearer ${secret}`)) return next();
+
   const cookies = parseCookies(req.headers.cookie);
   if (verifyToken(cookies.fids_auth, pw)) return next();
 
