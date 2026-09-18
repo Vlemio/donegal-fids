@@ -687,13 +687,29 @@ app.put('/api/flights/:id', async (req, res) => {
 
 app.delete('/api/flights/:id', async (req, res) => {
   const data = store.read();
+  const deleted = data.flights.find(f => f.id === req.params.id);
   data.flights = data.flights.filter(f => f.id !== req.params.id);
-  // Prevent FR24/API from re-adding this flight on the next tick.
-  if (!Array.isArray(data.blockedIds)) data.blockedIds = [];
-  if (!data.blockedIds.includes(req.params.id)) data.blockedIds.push(req.params.id);
+  // Only block non-schedule flights (charters, GA). Schedule flights are
+  // re-created automatically on the next tick by ensureTodaysFlights, so
+  // blocking them would hide a scheduled service from the board permanently.
+  if (deleted && deleted.source !== 'schedule') {
+    if (!Array.isArray(data.blockedIds)) data.blockedIds = [];
+    if (!data.blockedIds.includes(req.params.id)) data.blockedIds.push(req.params.id);
+  }
   store.write(data);
   await kv.saveFlights();
   res.json({ ok: true });
+});
+
+// Remove a flight ID from the blocklist (re-allows FR24 to report it).
+app.post('/api/flights/:id/unblock', async (req, res) => {
+  const data = store.read();
+  if (Array.isArray(data.blockedIds)) {
+    data.blockedIds = data.blockedIds.filter(id => id !== req.params.id);
+  }
+  store.write(data);
+  await kv.saveFlights();
+  res.json({ ok: true, unblocked: req.params.id });
 });
 
 // Block a flight ID from being re-added by the API (even if not currently in the store).
