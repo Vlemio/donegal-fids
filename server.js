@@ -400,19 +400,39 @@ function restartPolling() {
   console.log(`[poll] smart schedule active — checks every ${POLL_CHECK_MS / 60000} min`);
 }
 
-// FR24 independent poll — runs every 5 min during the active flight window.
-// ADB is expensive (RapidAPI credits) so we fire it only on event triggers.
-// FR24 is cheaper and more time-sensitive (actual takeoff/landing events),
-// so it gets its own heartbeat to catch events between the ADB trigger windows.
+// FR24 independent poll — adaptive rate during the active flight window.
+// Critical window (±15 min around estTime/time): every 60 s — fast departure/landing detection.
+// Normal window (rest of the 90+30 min active range): every 2 min — enough for callsigns / ETA.
+// The timer ticks every 60 s; actual FR24 calls are gated by isFr24CriticalWindow + lastFr24CallAt.
+let lastFr24CallAt = 0;
+
+function isFr24CriticalWindow(data, cfg) {
+  const tz  = (cfg.display && cfg.display.timezone) || 'Europe/Dublin';
+  const now = _nowMinsTz(tz);
+  return data.flights.some(f => {
+    if (['Cancelled', 'Landed', 'Departed'].includes(f.status)) return false;
+    if (f.status === 'On Approach') return true; // always critical near runway
+    const t = _hhmToMins(f.estTime || f.time);
+    if (t == null) return false;
+    return Math.abs(now - t) <= 15; // ±15 min = 30-min critical window
+  });
+}
+
 async function fr24Tick() {
   const cfg = readConfig();
   if (!cfg.fr24 || !cfg.fr24.enabled || !cfg.fr24.apiKey) return;
   const data = store.read();
   if (!tracker.isActiveWindow(data, cfg)) return;
+
+  const critical   = isFr24CriticalWindow(data, cfg);
+  const minGap     = critical ? 60 * 1000 : 2 * 60 * 1000;
+  if (Date.now() - lastFr24CallAt < minGap) return;
+  lastFr24CallAt = Date.now();
+
   try {
     const flights = await fr24Adapter.fetchFlights(cfg);
     store.mergeApi(flights);
-    console.log(`[fr24] ${flights.length} flights`);
+    console.log(`[fr24] ${flights.length} flights${critical ? ' (critical)' : ''}`);
   } catch (err) {
     console.warn(`[fr24] poll failed: ${err.message}`);
   }
@@ -425,9 +445,10 @@ function startFr24Polling() {
     console.log('[fr24] independent polling disabled');
     return;
   }
-  fr24Tick(); // immediate first call — don't wait 2 min on startup
-  fr24Timer = setInterval(fr24Tick, 2 * 60 * 1000);
-  console.log('[fr24] independent poll every 2 min (active window only)');
+  lastFr24CallAt = 0;
+  fr24Tick(); // immediate first call on startup
+  fr24Timer = setInterval(fr24Tick, 60 * 1000); // checks every 60s; rate gated internally
+  console.log('[fr24] adaptive poll: 60s critical window (±15 min), 2 min otherwise');
 }
 
 app.get('/api/status', (req, res) => res.json(lastPoll));
