@@ -355,8 +355,10 @@ async function pollOnce(forceReason) {
     firedReasons.set(reason, Date.now());
   }
 
-  // Poll order: AeroDataBox first (scheduled times + basic status), then FR24
-  // (ICAO callsigns + authoritative events overwrite ADB), then FlightAware if enabled.
+  // Poll order: AeroDataBox first (scheduled times + basic status), then FlightAware if enabled.
+  // FR24 is NOT called here — it has its own independent 3-min heartbeat (fr24Tick) that
+  // already runs during the active flight window. Calling it again inside pollOnce would
+  // double the credit consumption for no benefit.
   const results = { adb: 0, fr24: 0, fa: 0, errors: [] };
   try {
     const flights = await apiAdapter.fetchFlights(cfg);
@@ -365,16 +367,6 @@ async function pollOnce(forceReason) {
   } catch (err) {
     results.errors.push(`ADB: ${err.message}`);
     console.warn(`[poll] AeroDataBox failed: ${err.message}`);
-  }
-  if (cfg.fr24 && cfg.fr24.enabled && cfg.fr24.apiKey) {
-    try {
-      const fr24Flights = await fr24Adapter.fetchFlights(cfg);
-      store.mergeApi(fr24Flights);
-      results.fr24 = fr24Flights.length;
-    } catch (err) {
-      results.errors.push(`FR24: ${err.message}`);
-      console.warn(`[poll] FR24 failed: ${err.message}`);
-    }
   }
   if (cfg.flightaware && cfg.flightaware.enabled && cfg.flightaware.apiKey) {
     try {
@@ -433,9 +425,9 @@ function startFr24Polling() {
     console.log('[fr24] independent polling disabled');
     return;
   }
-  fr24Tick(); // immediate first call — don't wait 1 min on startup
-  fr24Timer = setInterval(fr24Tick, 60 * 1000);
-  console.log('[fr24] independent poll every 1 min (active window only)');
+  fr24Tick(); // immediate first call — don't wait 3 min on startup
+  fr24Timer = setInterval(fr24Tick, 3 * 60 * 1000);
+  console.log('[fr24] independent poll every 3 min (active window only)');
 }
 
 app.get('/api/status', (req, res) => res.json(lastPoll));
