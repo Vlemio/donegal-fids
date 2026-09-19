@@ -158,7 +158,12 @@ async function fetchFlights(cfg, pendingDeps = [], onApproachArrivals = [], goAr
 
     // ETA for in-flight arrivals: set ROUTE_MIN fallback now, then enrich with
     // FR24's own live ETA (flight-positions/full) after the loop.
-    if (isArrival && f.datetime_takeoff && !f.datetime_landed) {
+    // Skip ROUTE_MIN once the flight is On Approach — at that point the estimate
+    // is ~5–8 min stale and would overwrite the more accurate OpenSky ETA already
+    // in the store. Live-positions will supply pos.eta below if available; if that
+    // call fails, mergeApi preserves the existing value (undefined never overwrites).
+    const alreadyOnApproach = onApproachArrivals.some(a => a.id === id);
+    if (isArrival && f.datetime_takeoff && !f.datetime_landed && !alreadyOnApproach) {
       const durationMin = ROUTE_MIN[f.orig_icao] || 60;
       const takeoffMs   = parseUtcMs(f.datetime_takeoff);
       entry.estTime     = utcToLocalHHMM(takeoffMs + durationMin * 60 * 1000, tz);
