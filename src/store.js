@@ -146,7 +146,12 @@ function mergeApi(apiFlights) {
     // Update only unlocked, API-managed fields on the existing record.
     const locks = existing.locks || {};
     for (const field of API_FIELDS) {
-      if (!locks[field] && flight[field] !== undefined && flight[field] !== '' &&
+      // A status lock prevents the clock and API from overwriting staff choices (e.g. Go to
+      // Security). Exception: a FR24-confirmed real-world event (actual takeoff or landing)
+      // always wins — once the aircraft physically moves, any boarding status is obsolete.
+      const fr24Event = field === 'status' && !!incoming.fr24Confirmed &&
+        (flight[field] === 'Departed' || flight[field] === 'Landed');
+      if ((!locks[field] || fr24Event) && flight[field] !== undefined && flight[field] !== '' &&
           !(field === 'codeshare' && Array.isArray(flight[field]) && flight[field].length === 0) &&
           !(field === 'estTime' && flight[field] === null && existing[field] != null)) {
         // Don't let the API downgrade a real-time status that ADS-B or the tracker
