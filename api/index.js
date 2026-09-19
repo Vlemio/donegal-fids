@@ -365,7 +365,7 @@ async function trackTick() {
   }
   if (Date.now() < openskyBackoffUntil) return;
   const data = store.read();
-  const IDLE_REFRESH_MS = 5 * 60 * 1000;
+  const IDLE_REFRESH_MS = 10 * 60 * 1000; // idle map refresh: every ~10 min (was 5) to stay within OpenSky limits
   const dataAge = liveData.at ? Date.now() - new Date(liveData.at).getTime() : Infinity;
   if (!tracker.isActiveWindow(data, cfg) && dataAge < IDLE_REFRESH_MS) return;
 
