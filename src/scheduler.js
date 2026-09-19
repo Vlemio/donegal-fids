@@ -186,7 +186,10 @@ function autoAdvanceStatus(data, cfg, parts) {
       // Final / confirmed states: clock never touches these.
       // Departed is owned by FR24 (live-positions alt > 30 m or datetime_takeoff) —
       // guard it here so the clock cannot walk it back to On Time / Delayed.
-      if (f.status === 'Cancelled' || f.status === 'Diverted' || f.status === 'Departed') continue;
+      // Staff-set boarding statuses are also protected: once the gate agent has sent
+      // passengers to security or started boarding, the clock must not revert to Delayed.
+      if (['Cancelled', 'Diverted', 'Departed',
+           'Go to Security', 'Check-in', 'Boarding', 'Final Call', 'Gate Closed'].includes(f.status)) continue;
 
       // Effective departure minute: scheduled time, pushed later by two sources:
       // 1. AeroDataBox revised time (estTime already set by mergeApi).
