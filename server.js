@@ -425,9 +425,9 @@ function startFr24Polling() {
     console.log('[fr24] independent polling disabled');
     return;
   }
-  fr24Tick(); // immediate first call — don't wait 3 min on startup
-  fr24Timer = setInterval(fr24Tick, 3 * 60 * 1000);
-  console.log('[fr24] independent poll every 3 min (active window only)');
+  fr24Tick(); // immediate first call — don't wait 2 min on startup
+  fr24Timer = setInterval(fr24Tick, 2 * 60 * 1000);
+  console.log('[fr24] independent poll every 2 min (active window only)');
 }
 
 app.get('/api/status', (req, res) => res.json(lastPoll));
