@@ -178,6 +178,12 @@ async function fetchFlights(cfg, pendingDeps = [], onApproachArrivals = [], goAr
       entry.estTime = utcToLocalHHMM(parseUtcMs(f.datetime_landed), tz);
     }
 
+    // Actual takeoff time: use as the definitive departure time on the board.
+    // Mirrors datetime_landed → estTime for arrivals.
+    if (!isArrival && f.datetime_takeoff) {
+      entry.estTime = utcToLocalHHMM(parseUtcMs(f.datetime_takeoff), tz);
+    }
+
     flights.push(entry);
   }
 

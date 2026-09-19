@@ -544,6 +544,14 @@ function track(data, cfg, states, nowDate = new Date()) {
           // baro sensor initialises — null altitude is the tell-tale sign.
           const alt = st.baroAltitude;
           if (alt != null && alt > 30) {
+            if (!f.departedAt) {
+              f.departedAt = fmtTime(nowDate, tz);
+              if (!f.locks || !f.locks.estTime) {
+                f.estTime     = f.departedAt;
+                f.estLate     = false;
+                f.estVeryLate = false;
+              }
+            }
             f.status = 'Departed';
           }
         }
